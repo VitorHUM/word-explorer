@@ -5,7 +5,7 @@ export function configureOpenApi(app: INestApplication): void {
   const documentBuilder = new DocumentBuilder()
     .setTitle('Word Explorer API')
     .setDescription(
-      'Word Explorer API para Listar palavras em inglês, utilizando como base a API Free Dictionary API..',
+      'Word Explorer API para Listar palavras em inglês, utilizando como base a API Free Dictionary API.',
     )
     .setVersion('1.0.0')
     .addBearerAuth(
@@ -13,7 +13,6 @@ export function configureOpenApi(app: INestApplication): void {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
-        description: 'Informe apenas o token JWT, sem o prefixo Bearer.',
       },
       'bearer',
     );

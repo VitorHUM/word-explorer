@@ -18,24 +18,24 @@ export class SignUpDto {
   @ApiProperty({
     example: 'Usuário 1',
   })
-  @IsString()
-  @IsNotEmpty()
+  @IsString({ message: 'name deve ser um texto.' })
+  @IsNotEmpty({ message: 'name é obrigatório.' })
   @Transform(({ value }: { value: unknown }) => normalizeNameValue(value))
   name!: string;
 
   @ApiProperty({
     example: 'example@email.com',
   })
-  @IsEmail()
-  @IsNotEmpty()
+  @IsEmail({}, { message: 'email deve ser um e-mail válido.' })
+  @IsNotEmpty({ message: 'email é obrigatório.' })
   @Transform(({ value }: { value: unknown }) => normalizeEmailValue(value))
   email!: string;
 
   @ApiProperty({
     example: 'test',
   })
-  @IsString()
-  @IsNotEmpty()
+  @IsString({ message: 'password deve ser um texto.' })
+  @IsNotEmpty({ message: 'password é obrigatório.' })
   password!: string;
 }
 
@@ -43,16 +43,16 @@ export class SignInDto {
   @ApiProperty({
     example: 'example@email.com',
   })
-  @IsEmail()
-  @IsNotEmpty()
+  @IsEmail({}, { message: 'email deve ser um e-mail válido.' })
+  @IsNotEmpty({ message: 'email é obrigatório.' })
   @Transform(({ value }: { value: unknown }) => normalizeEmailValue(value))
   email!: string;
 
   @ApiProperty({
     example: 'test',
   })
-  @IsString()
-  @IsNotEmpty()
+  @IsString({ message: 'password deve ser um texto.' })
+  @IsNotEmpty({ message: 'password é obrigatório.' })
   password!: string;
 }
 

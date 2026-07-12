@@ -179,6 +179,122 @@ describe('AppController (e2e)', () => {
     });
   });
 
+  it('/entries/en (GET) should return authenticated paginated search results', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const email = `entries-${Date.now()}@email.com`;
+    const wordPrefix = `entryapitest${Date.now()}`;
+    const values = [`${wordPrefix}a`, `${wordPrefix}b`, `${wordPrefix}c`];
+
+    const signUpResponse = await request(httpServer).post('/auth/signup').send({
+      name: 'User 1',
+      email,
+      password: 'test',
+    });
+    const signUpResponseBodyUnknown: unknown = signUpResponse.body;
+
+    if (
+      typeof signUpResponseBodyUnknown !== 'object' ||
+      signUpResponseBodyUnknown === null
+    ) {
+      throw new Error('Expected the signup response body to be an object.');
+    }
+
+    const signUpResponseBody = signUpResponseBodyUnknown as Record<
+      string,
+      unknown
+    >;
+    const token = signUpResponseBody.token;
+
+    if (typeof token !== 'string') {
+      throw new Error('Expected the signup token to be a string.');
+    }
+
+    await prismaService.dictionaryWord.createMany({
+      data: values.map((value) => ({ value })),
+      skipDuplicates: true,
+    });
+
+    const response = await request(httpServer)
+      .get(`/entries/en?search=${wordPrefix}&page=1&limit=2`)
+      .set('Authorization', token);
+    const responseBodyUnknown: unknown = response.body;
+
+    if (
+      typeof responseBodyUnknown !== 'object' ||
+      responseBodyUnknown === null
+    ) {
+      throw new Error('Expected the entries response body to be an object.');
+    }
+
+    const responseBody = responseBodyUnknown as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect(responseBody).toEqual({
+      results: [`${wordPrefix}a`, `${wordPrefix}b`],
+      totalDocs: 3,
+      page: 1,
+      totalPages: 2,
+      hasNext: true,
+      hasPrev: false,
+    });
+
+    await prismaService.dictionaryWord.deleteMany({
+      where: {
+        value: {
+          in: values,
+        },
+      },
+    });
+    await prismaService.user.deleteMany({
+      where: { email },
+    });
+  });
+
+  it('/entries/en (GET) should reject invalid query parameters', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const email = `entries-invalid-${Date.now()}@email.com`;
+
+    const signUpResponse = await request(httpServer).post('/auth/signup').send({
+      name: 'User 1',
+      email,
+      password: 'test',
+    });
+    const signUpResponseBodyUnknown: unknown = signUpResponse.body;
+
+    if (
+      typeof signUpResponseBodyUnknown !== 'object' ||
+      signUpResponseBodyUnknown === null
+    ) {
+      throw new Error('Expected the signup response body to be an object.');
+    }
+
+    const signUpResponseBody = signUpResponseBodyUnknown as Record<
+      string,
+      unknown
+    >;
+    const token = signUpResponseBody.token;
+
+    if (typeof token !== 'string') {
+      throw new Error('Expected the signup token to be a string.');
+    }
+
+    const response = await request(httpServer)
+      .get('/entries/en?page=0&limit=101')
+      .set('Authorization', token);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      message:
+        'page deve ser maior ou igual a 1.; limit deve ser menor ou igual a 100.',
+      error: 'Bad Request',
+      statusCode: 400,
+    });
+
+    await prismaService.user.deleteMany({
+      where: { email },
+    });
+  });
+
   afterAll(async () => {
     await app.close();
   });
