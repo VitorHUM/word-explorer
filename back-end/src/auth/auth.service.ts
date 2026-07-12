@@ -46,7 +46,9 @@ export class AuthService {
       return this.buildAuthResponse(user);
     } catch (error: unknown) {
       if (this.isUniqueConstraintError(error)) {
-        throw new ConflictException('A user with this email already exists.');
+        throw new ConflictException(
+          'Já existe um usuário cadastrado com este e-mail.',
+        );
       }
 
       throw error;
@@ -68,7 +70,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('Invalid email or password.');
+      throw new UnauthorizedException('E-mail ou senha inválidos.');
     }
 
     const isPasswordValid = await compare(
@@ -77,7 +79,7 @@ export class AuthService {
     );
 
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid email or password.');
+      throw new UnauthorizedException('E-mail ou senha inválidos.');
     }
 
     return this.buildAuthResponse(user);

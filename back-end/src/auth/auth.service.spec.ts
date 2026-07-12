@@ -106,7 +106,7 @@ describe('AuthService', () => {
         password: 'test',
       }),
     ).rejects.toThrow(
-      new ConflictException('A user with this email already exists.'),
+      new ConflictException('Já existe um usuário cadastrado com este e-mail.'),
     );
   });
 
@@ -212,7 +212,7 @@ describe('AuthService', () => {
         email: 'missing@email.com',
         password: 'test',
       }),
-    ).rejects.toThrow(new UnauthorizedException('Invalid email or password.'));
+    ).rejects.toThrow(new UnauthorizedException('E-mail ou senha inválidos.'));
   });
 
   it('should reject an invalid password with a generic credentials message', async () => {
@@ -228,7 +228,7 @@ describe('AuthService', () => {
         email: 'example@email.com',
         password: 'test',
       }),
-    ).rejects.toThrow(new UnauthorizedException('Invalid email or password.'));
+    ).rejects.toThrow(new UnauthorizedException('E-mail ou senha inválidos.'));
   });
 
   it('should normalize the email before searching for a user during sign in', async () => {

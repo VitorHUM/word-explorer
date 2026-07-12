@@ -20,14 +20,14 @@ export class AuthTokenService {
       return await this.jwtService.verifyAsync<AccessTokenPayload>(token);
     } catch (error: unknown) {
       if (error instanceof TokenExpiredError) {
-        throw new UnauthorizedException('Token has expired.');
+        throw new UnauthorizedException('O token expirou.');
       }
 
       if (
         error instanceof JsonWebTokenError ||
         error instanceof NotBeforeError
       ) {
-        throw new UnauthorizedException('Token is invalid.');
+        throw new UnauthorizedException('O token informado é inválido.');
       }
 
       throw error;

@@ -9,7 +9,9 @@ export const CurrentUser = createParamDecorator(
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
 
     if (!request.user) {
-      throw new Error('Authenticated user is not available in the request.');
+      throw new Error(
+        'O usuário autenticado não está disponível na requisição.',
+      );
     }
 
     return request.user;

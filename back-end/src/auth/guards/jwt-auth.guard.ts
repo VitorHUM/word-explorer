@@ -36,7 +36,7 @@ export class JwtAuthGuard implements CanActivate {
     });
 
     if (!authenticatedUser) {
-      throw new UnauthorizedException('Token is invalid.');
+      throw new UnauthorizedException('O token informado é inválido.');
     }
 
     request.user = authenticatedUser satisfies AuthenticatedUser;
@@ -48,18 +48,20 @@ export class JwtAuthGuard implements CanActivate {
     authorizationHeader: string | string[] | undefined,
   ): string {
     if (!authorizationHeader) {
-      throw new UnauthorizedException('Authorization token is required.');
+      throw new UnauthorizedException('O token de autorização é obrigatório.');
     }
 
     if (Array.isArray(authorizationHeader)) {
-      throw new UnauthorizedException('Authorization header is malformed.');
+      throw new UnauthorizedException(
+        'O cabeçalho Authorization está malformado.',
+      );
     }
 
     const [scheme, token, ...rest] = authorizationHeader.split(' ');
 
     if (scheme !== 'Bearer' || !token || rest.length > 0) {
       throw new UnauthorizedException(
-        'Authorization header must use the Bearer token format.',
+        'O cabeçalho Authorization deve usar o formato Bearer.',
       );
     }
 

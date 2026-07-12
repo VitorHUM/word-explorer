@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import { RootResponseDto } from './dto/root-response.dto';
 
 @Injectable()
 export class AppService {
-  getRootMessage(): { message: string } {
+  getRootMessage(): RootResponseDto {
     return { message: 'English Dictionary' };
   }
 }

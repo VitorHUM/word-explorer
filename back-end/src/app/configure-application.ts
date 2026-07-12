@@ -18,7 +18,9 @@ export function configureApplication(app: INestApplication): void {
           )
           .join('; ');
 
-        return new BadRequestException(messages || 'Invalid request data.');
+        return new BadRequestException(
+          messages || 'Os dados enviados na requisição são inválidos.',
+        );
       },
     }),
   );

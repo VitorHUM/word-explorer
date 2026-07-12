@@ -158,7 +158,7 @@ describe('AppController (e2e)', () => {
 
     expect(response.status).toBe(401);
     expect(response.body).toEqual({
-      message: 'Authorization token is required.',
+      message: 'O token de autorização é obrigatório.',
       error: 'Unauthorized',
       statusCode: 401,
     });
@@ -173,7 +173,7 @@ describe('AppController (e2e)', () => {
 
     expect(response.status).toBe(401);
     expect(response.body).toEqual({
-      message: 'Token is invalid.',
+      message: 'O token informado é inválido.',
       error: 'Unauthorized',
       statusCode: 401,
     });

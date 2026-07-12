@@ -76,7 +76,7 @@ describe('JwtAuthGuard', () => {
     await expect(
       guard.canActivate(createExecutionContext(request)),
     ).rejects.toThrow(
-      new UnauthorizedException('Authorization token is required.'),
+      new UnauthorizedException('O token de autorização é obrigatório.'),
     );
   });
 
@@ -91,7 +91,7 @@ describe('JwtAuthGuard', () => {
       guard.canActivate(createExecutionContext(request)),
     ).rejects.toThrow(
       new UnauthorizedException(
-        'Authorization header must use the Bearer token format.',
+        'O cabeçalho Authorization deve usar o formato Bearer.',
       ),
     );
   });
@@ -104,12 +104,14 @@ describe('JwtAuthGuard', () => {
     };
 
     jwtService.verifyAsync.mockRejectedValue(
-      new UnauthorizedException('Token is invalid.'),
+      new UnauthorizedException('O token informado é inválido.'),
     );
 
     await expect(
       guard.canActivate(createExecutionContext(request)),
-    ).rejects.toThrow(new UnauthorizedException('Token is invalid.'));
+    ).rejects.toThrow(
+      new UnauthorizedException('O token informado é inválido.'),
+    );
   });
 
   it('should reject an expired token', async () => {
@@ -120,12 +122,12 @@ describe('JwtAuthGuard', () => {
     };
 
     jwtService.verifyAsync.mockRejectedValue(
-      new UnauthorizedException('Token has expired.'),
+      new UnauthorizedException('O token expirou.'),
     );
 
     await expect(
       guard.canActivate(createExecutionContext(request)),
-    ).rejects.toThrow(new UnauthorizedException('Token has expired.'));
+    ).rejects.toThrow(new UnauthorizedException('O token expirou.'));
   });
 
   it('should reject when the token user no longer exists', async () => {
@@ -140,7 +142,9 @@ describe('JwtAuthGuard', () => {
 
     await expect(
       guard.canActivate(createExecutionContext(request)),
-    ).rejects.toThrow(new UnauthorizedException('Token is invalid.'));
+    ).rejects.toThrow(
+      new UnauthorizedException('O token informado é inválido.'),
+    );
   });
 });
 
