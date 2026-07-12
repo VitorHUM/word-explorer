@@ -3,9 +3,11 @@ import {
   type INestApplication,
   ValidationPipe,
 } from '@nestjs/common';
+import { ResponseTimeInterceptor } from './response-time.interceptor';
 
 export function configureApplication(app: INestApplication): void {
   app.enableShutdownHooks();
+  app.useGlobalInterceptors(new ResponseTimeInterceptor());
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

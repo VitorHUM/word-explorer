@@ -5,6 +5,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { CacheService } from '../cache/cache.service';
 import { AppConfigService } from '../config/app-config.service';
 import type {
   DictionaryDefinition,
@@ -14,10 +15,12 @@ import type {
   FreeDictionaryApiEntry,
   FreeDictionaryApiMeaning,
   FreeDictionaryApiPhonetic,
+  FreeDictionaryClientResult,
   FreeDictionaryResult,
 } from './free-dictionary.type';
 
 const DEFAULT_TIMEOUT_MS = 10_000;
+const DICTIONARY_ENTRY_CACHE_KEY_PREFIX = 'dictionary:entry:en:';
 
 interface FetchLikeResponse {
   ok: boolean;
@@ -34,7 +37,10 @@ type FetchLike = (
 export class FreeDictionaryClient {
   private fetchImplementation: FetchLike = fetch;
 
-  constructor(private readonly appConfigService: AppConfigService) {}
+  constructor(
+    private readonly appConfigService: AppConfigService,
+    private readonly cacheService: CacheService,
+  ) {}
 
   setFetchImplementation(fetchImplementation: FetchLike): this {
     this.fetchImplementation = fetchImplementation;
@@ -43,20 +49,57 @@ export class FreeDictionaryClient {
   }
 
   async getEnglishEntry(word: string): Promise<FreeDictionaryResult> {
-    const requestUrl = this.buildEntryUrl(word);
-    const payload = await this.fetchEntryPayload(requestUrl);
+    const result = await this.getEnglishEntryWithCache(word);
 
-    return this.mapEntryPayload(payload);
+    return result.entry;
+  }
+
+  async getEnglishEntryWithCache(
+    word: string,
+  ): Promise<FreeDictionaryClientResult> {
+    const normalizedWord = this.normalizeWord(word);
+    const cacheKey = `${DICTIONARY_ENTRY_CACHE_KEY_PREFIX}${normalizedWord}`;
+    const cachedEntry =
+      await this.cacheService.getJson<FreeDictionaryResult>(cacheKey);
+
+    if (cachedEntry) {
+      return {
+        entry: cachedEntry,
+        cacheStatus: 'HIT',
+      };
+    }
+
+    const requestUrl = this.buildEntryUrl(normalizedWord);
+    const payload = await this.fetchEntryPayload(requestUrl);
+    const mappedEntry = this.mapEntryPayload(payload);
+
+    await this.cacheService.setJson(
+      cacheKey,
+      mappedEntry,
+      this.appConfigService.dictionaryCacheTtlSeconds,
+    );
+
+    return {
+      entry: mappedEntry,
+      cacheStatus: 'MISS',
+    };
   }
 
   private buildEntryUrl(word: string): string {
     const encodedWord = encodeURIComponent(word);
-    const normalizedBaseUrl = this.appConfigService.dictionaryApiUrl.replace(
-      /\/+$/,
-      '',
+    const normalizedBaseUrl = this.normalizeDictionaryApiBaseUrl(
+      this.appConfigService.dictionaryApiUrl,
     );
 
     return `${normalizedBaseUrl}/entries/en/${encodedWord}`;
+  }
+
+  private normalizeWord(word: string): string {
+    return word.trim().toLowerCase();
+  }
+
+  private normalizeDictionaryApiBaseUrl(baseUrl: string): string {
+    return baseUrl.replace(/\/+$/, '').replace(/\/entries\/en$/i, '');
   }
 
   private async fetchEntryPayload(url: string): Promise<unknown> {

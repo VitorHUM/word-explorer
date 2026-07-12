@@ -19,16 +19,19 @@ export class HttpLoggingMiddleware implements NestMiddleware {
     const requestPath = originalUrl || url;
 
     const startedAt = performance.now();
+    response.locals.requestStartedAt = startedAt;
     const requestBodyLog = this.buildRequestBodyLog(request);
 
     response.on('finish', () => {
       const { statusCode } = response;
       const elapsedMs = Math.round(performance.now() - startedAt);
+      const cacheStatus = this.getCacheStatusLog(response);
 
       const message = [
         `${method} ${requestPath}`,
         `Status Code = ${statusCode}`,
-        `Time = ${elapsedMs}ms`,
+        `Elapsed Time = ${elapsedMs}ms`,
+        cacheStatus,
         requestBodyLog,
       ]
         .filter(Boolean)
@@ -68,6 +71,16 @@ export class HttpLoggingMiddleware implements NestMiddleware {
         : serializedBody;
 
     return `Body = ${truncatedBody}`;
+  }
+
+  private getCacheStatusLog(response: Response): string | null {
+    const cacheHeader = response.getHeader('x-cache');
+
+    if (cacheHeader !== 'HIT' && cacheHeader !== 'MISS') {
+      return null;
+    }
+
+    return `Cache = ${cacheHeader}`;
   }
 
   private shouldLogBody(request: Request): boolean {

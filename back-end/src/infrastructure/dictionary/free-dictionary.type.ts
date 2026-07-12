@@ -5,6 +5,13 @@ export interface FreeDictionaryResult {
   sourceUrls: string[];
 }
 
+export type DictionaryEntryCacheStatus = 'HIT' | 'MISS';
+
+export interface FreeDictionaryClientResult {
+  entry: FreeDictionaryResult;
+  cacheStatus: DictionaryEntryCacheStatus;
+}
+
 export interface DictionaryPhonetic {
   text?: string;
   audio?: string;

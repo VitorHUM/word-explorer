@@ -4,6 +4,7 @@ import request from 'supertest';
 import { AppModule } from './../src/app.module';
 import { configureApplication } from './../src/app/configure-application';
 import { PrismaService } from './../src/infrastructure/database/prisma/prisma.service';
+import { FreeDictionaryClient } from './../src/infrastructure/dictionary/free-dictionary.client';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication;
@@ -12,7 +13,22 @@ describe('AppController (e2e)', () => {
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(FreeDictionaryClient)
+      .useValue({
+        getEnglishEntryWithCache: jest.fn((word: string) =>
+          Promise.resolve({
+            entry: {
+              word,
+              phonetics: [{ text: '/faɪə/' }],
+              meanings: [],
+              sourceUrls: ['https://source.example/fire'],
+            },
+            cacheStatus: 'MISS',
+          }),
+        ),
+      })
+      .compile();
 
     app = moduleFixture.createNestApplication();
     prismaService = app.get(PrismaService);
@@ -290,6 +306,102 @@ describe('AppController (e2e)', () => {
       statusCode: 400,
     });
 
+    await prismaService.user.deleteMany({
+      where: { email },
+    });
+  });
+
+  it('/entries/en/:word (GET) should return details and persist history', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const email = `entry-details-${Date.now()}@email.com`;
+    const word = 'fire';
+
+    await prismaService.dictionaryWord.upsert({
+      where: { value: word },
+      update: {},
+      create: { value: word },
+    });
+
+    const signUpResponse = await request(httpServer).post('/auth/signup').send({
+      name: 'User 1',
+      email,
+      password: 'test',
+    });
+    const signUpResponseBodyUnknown: unknown = signUpResponse.body;
+
+    if (
+      typeof signUpResponseBodyUnknown !== 'object' ||
+      signUpResponseBodyUnknown === null
+    ) {
+      throw new Error('Expected the signup response body to be an object.');
+    }
+
+    const signUpResponseBody = signUpResponseBodyUnknown as Record<
+      string,
+      unknown
+    >;
+    const token = signUpResponseBody.token;
+
+    if (typeof token !== 'string') {
+      throw new Error('Expected the signup token to be a string.');
+    }
+
+    const response = await request(httpServer)
+      .get(`/entries/en/${word}`)
+      .set('Authorization', token);
+    const responseBodyUnknown: unknown = response.body;
+
+    if (
+      typeof responseBodyUnknown !== 'object' ||
+      responseBodyUnknown === null
+    ) {
+      throw new Error(
+        'Expected the entry details response body to be an object.',
+      );
+    }
+
+    const responseBody = responseBodyUnknown as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect(response.headers['x-cache']).toBe('MISS');
+    expect(response.headers['x-response-time']).toEqual(
+      expect.stringMatching(/^[0-9]+ms$/),
+    );
+    expect(responseBody.word).toBe(word);
+    expect(Array.isArray(responseBody.phonetics)).toBe(true);
+    expect(Array.isArray(responseBody.meanings)).toBe(true);
+    expect(Array.isArray(responseBody.sourceUrls)).toBe(true);
+
+    const persistedUser = await prismaService.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    const persistedWord = await prismaService.dictionaryWord.findUnique({
+      where: { value: word },
+      select: { id: true },
+    });
+
+    expect(persistedUser).toBeTruthy();
+    expect(persistedWord).toBeTruthy();
+
+    if (!persistedUser || !persistedWord) {
+      throw new Error('Expected persisted user and word to exist.');
+    }
+
+    const historyCount = await prismaService.wordHistory.count({
+      where: {
+        userId: persistedUser.id,
+        wordId: persistedWord.id,
+      },
+    });
+
+    expect(historyCount).toBeGreaterThan(0);
+
+    await prismaService.wordHistory.deleteMany({
+      where: {
+        userId: persistedUser.id,
+      },
+    });
     await prismaService.user.deleteMany({
       where: { email },
     });
