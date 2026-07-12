@@ -18,6 +18,9 @@ out/
 # Tests
 coverage/
 
+# TypeScript incremental metadata
+*.tsbuildinfo
+
 # Logs
 *.log
 npm-debug.log*

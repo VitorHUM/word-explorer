@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String         @id @default(uuid()) @db.Uuid
+  name         String
+  email        String         @unique(map: "users_email_key")
+  passwordHash String         @map("password_hash")
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  favorites    FavoriteWord[]
+  history      WordHistory[]
+
+  @@map("users")
+}
+
+model DictionaryWord {
+  id        String         @id @default(uuid()) @db.Uuid
+  word      String         @unique(map: "dictionary_words_word_key")
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  favorites FavoriteWord[]
+  history   WordHistory[]
+
+  @@map("dictionary_words")
+}
+
+model FavoriteWord {
+  id        String         @id @default(uuid()) @db.Uuid
+  userId    String         @map("user_id") @db.Uuid
+  wordId    String         @map("word_id") @db.Uuid
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade, map: "favorite_words_user_id_fkey")
+  word      DictionaryWord @relation(fields: [wordId], references: [id], onDelete: Cascade, map: "favorite_words_word_id_fkey")
+
+  @@unique([userId, wordId], map: "favorite_words_user_id_word_id_key")
+  @@map("favorite_words")
+}
+
+model WordHistory {
+  id        String         @id @default(uuid()) @db.Uuid
+  userId    String         @map("user_id") @db.Uuid
+  wordId    String         @map("word_id") @db.Uuid
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade, map: "word_history_user_id_fkey")
+  word      DictionaryWord @relation(fields: [wordId], references: [id], onDelete: Cascade, map: "word_history_word_id_fkey")
+
+  @@index([userId, createdAt], map: "word_history_user_id_created_at_idx")
+  @@map("word_history")
+}
