@@ -26,12 +26,16 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@nestjs/jwt": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "bcryptjs": "^3.0.2",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.2",
     "ioredis": "^5.7.0",
     "joi": "^17.13.3",
     "pg": "^8.16.3",
@@ -81,5 +85,10 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
+  },
+  "allowScripts": {
+    "prisma@7.8.0": true,
+    "unrs-resolver@1.12.2": true,
+    "@prisma/engines@7.8.0": true
   }
 }
