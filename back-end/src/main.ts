@@ -17,8 +17,9 @@ async function bootstrap() {
   await app.listen(appConfigService.port);
 
   logger.log('\x1b[1m');
-  logger.log('✅ Word Explorer API Up and Running.');
+  logger.log('🚀 Word Explorer API Up and Running.');
   logger.log(`\x1b[1m🔌 API: \x1b[4m${baseUrl}\x1b[0m\x1b[1m`);
+  logger.log(`\x1b[1m✅ Healthcheck: \x1b[4m${baseUrl}/health\x1b[0m\x1b[1m`);
   logger.log(`📖 Swagger Docs: \x1b[4m${baseUrl}/docs\x1b[0m\x1b[1m`);
   logger.log(`📃 OpenAPI JSON: \x1b[4m${baseUrl}/docs/json\x1b[0m`);
   logger.log('');

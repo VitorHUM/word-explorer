@@ -31,6 +31,67 @@ services:
       timeout: 5s
       retries: 10
 
+  back-end:
+    build:
+      context: ./back-end
+      target: production
+    container_name: word-explorer-back-end
+    restart: unless-stopped
+    environment: &back-end-environment
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://word_explorer:word_explorer@postgres:5432/word_explorer?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_TTL_SECONDS: 3600
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-compose}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+      DICTIONARY_API_URL: ${DICTIONARY_API_URL:-https://api.dictionaryapi.dev/api/v2}
+      DICTIONARY_CACHE_TTL_SECONDS: 3600
+    ports:
+      - '3001:3001'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "const http=require('http');const port=process.env.PORT||3001;const req=http.request({host:'127.0.0.1',port,path:'/health',timeout:3000},res=>process.exit(res.statusCode===200?0:1));req.on('error',()=>process.exit(1));req.on('timeout',()=>{req.destroy();process.exit(1)});req.end();",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+  back-end-migrate:
+    profiles: ['tools']
+    build:
+      context: ./back-end
+      target: builder
+    environment: *back-end-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ['npm', 'run', 'prisma:migrate:deploy']
+
+  back-end-import:
+    profiles: ['tools']
+    build:
+      context: ./back-end
+      target: production
+    environment: *back-end-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ['npm', 'run', 'dictionary:import:prod']
+
 volumes:
   postgres-data:
   redis-data:

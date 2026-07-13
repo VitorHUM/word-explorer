@@ -21,4 +21,10 @@ describe('AppController', () => {
       });
     });
   });
+
+  describe('health', () => {
+    it('should return the API health status', () => {
+      expect(appController.getHealth()).toEqual({ status: 'ok' });
+    });
+  });
 });

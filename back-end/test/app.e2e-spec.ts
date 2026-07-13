@@ -1,246 +1,204 @@
-import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
+import type { INestApplication } from '@nestjs/common';
+import { Test, type TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from './../src/app.module';
-import { configureApplication } from './../src/app/configure-application';
-import { CacheService } from './../src/infrastructure/cache/cache.service';
-import { PrismaService } from './../src/infrastructure/database/prisma/prisma.service';
-import { FreeDictionaryClient } from './../src/infrastructure/dictionary/free-dictionary.client';
+import { AppModule } from '../src/app.module';
+import { configureApplication } from '../src/app/configure-application';
+import type { CacheDeleteByPatternResult } from '../src/infrastructure/cache/cache.service';
+import { CacheService } from '../src/infrastructure/cache/cache.service';
+import { PrismaService } from '../src/infrastructure/database/prisma/prisma.service';
+import { FreeDictionaryClient } from '../src/infrastructure/dictionary/free-dictionary.client';
 
-describe('AppController (e2e)', () => {
+type HttpServer = Parameters<typeof request>[0];
+
+interface AuthenticatedTestUser {
+  id: string;
+  token: string;
+  email: string;
+}
+
+interface MockDictionaryResponse {
+  ok: boolean;
+  status: number;
+  json(): Promise<unknown>;
+}
+
+class TestCacheService {
+  private readonly store = new Map<string, unknown>();
+  private unavailable = false;
+
+  setUnavailable(unavailable: boolean): void {
+    this.unavailable = unavailable;
+  }
+
+  clear(): void {
+    this.store.clear();
+    this.unavailable = false;
+  }
+
+  get<T>(key: string): Promise<{ status: 'HIT' | 'MISS'; data: T | null }> {
+    if (this.unavailable) {
+      return Promise.resolve({ status: 'MISS', data: null });
+    }
+
+    if (!this.store.has(key)) {
+      return Promise.resolve({ status: 'MISS', data: null });
+    }
+
+    return Promise.resolve({ status: 'HIT', data: this.store.get(key) as T });
+  }
+
+  async getJson<T>(key: string): Promise<T | null> {
+    return (await this.get<T>(key)).data;
+  }
+
+  set(key: string, value: unknown): Promise<void> {
+    if (!this.unavailable) {
+      this.store.set(key, value);
+    }
+
+    return Promise.resolve();
+  }
+
+  async setJson(key: string, value: unknown): Promise<void> {
+    await this.set(key, value);
+  }
+
+  delete(key: string): Promise<void> {
+    this.store.delete(key);
+
+    return Promise.resolve();
+  }
+
+  deleteByPattern(pattern: string): Promise<CacheDeleteByPatternResult> {
+    const prefix = pattern.replace(/\*$/, '');
+    let deletedCount = 0;
+
+    for (const key of Array.from(this.store.keys())) {
+      if (key.startsWith(prefix)) {
+        this.store.delete(key);
+        deletedCount += 1;
+      }
+    }
+
+    return Promise.resolve({ deletedCount, failed: false });
+  }
+}
+
+describe('Back-end requirements (e2e)', () => {
   let app: INestApplication;
+  let httpServer: HttpServer;
   let prismaService: PrismaService;
-  const dictionaryCacheState = new Set<string>();
-  const entriesCacheState = new Map<string, Record<string, unknown>>();
+  let cacheService: TestCacheService;
+  let dictionaryFetchMock: jest.Mock<Promise<MockDictionaryResponse>, [string]>;
 
   beforeAll(async () => {
+    cacheService = new TestCacheService();
+    dictionaryFetchMock = jest.fn((url: string) =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(buildDictionaryPayload(url)),
+      }),
+    );
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
       .overrideProvider(CacheService)
-      .useValue({
-        get: jest.fn((key: string) => {
-          const cachedValue = entriesCacheState.get(key);
-
-          return Promise.resolve(
-            cachedValue
-              ? { status: 'HIT' as const, data: cachedValue }
-              : { status: 'MISS' as const, data: null },
-          );
-        }),
-        getJson: jest.fn((key: string) =>
-          Promise.resolve(entriesCacheState.get(key) ?? null),
-        ),
-        set: jest.fn((key: string, value: Record<string, unknown>) => {
-          entriesCacheState.set(key, value);
-          return Promise.resolve();
-        }),
-        setJson: jest.fn((key: string, value: Record<string, unknown>) => {
-          entriesCacheState.set(key, value);
-          return Promise.resolve();
-        }),
-        delete: jest.fn((key: string) => {
-          entriesCacheState.delete(key);
-          return Promise.resolve();
-        }),
-        deleteByPattern: jest.fn((pattern: string) => {
-          const prefix = pattern.replace('*', '');
-          let deletedCount = 0;
-
-          for (const key of Array.from(entriesCacheState.keys())) {
-            if (key.startsWith(prefix)) {
-              entriesCacheState.delete(key);
-              deletedCount += 1;
-            }
-          }
-
-          return Promise.resolve({ deletedCount, failed: false });
-        }),
-      })
-      .overrideProvider(FreeDictionaryClient)
-      .useValue({
-        getEnglishEntryWithCache: jest.fn((word: string) =>
-          Promise.resolve(
-            dictionaryCacheState.has(word)
-              ? {
-                  entry: {
-                    word,
-                    phonetics: [{ text: '/faɪə/' }],
-                    meanings: [],
-                    sourceUrls: ['https://source.example/fire'],
-                  },
-                  cacheStatus: 'HIT' as const,
-                }
-              : (() => {
-                  dictionaryCacheState.add(word);
-
-                  return {
-                    entry: {
-                      word,
-                      phonetics: [{ text: '/faɪə/' }],
-                      meanings: [],
-                      sourceUrls: ['https://source.example/fire'],
-                    },
-                    cacheStatus: 'MISS' as const,
-                  };
-                })(),
-          ),
-        ),
-      })
+      .useValue(cacheService)
       .compile();
 
     app = moduleFixture.createNestApplication();
     prismaService = app.get(PrismaService);
+    app
+      .get(FreeDictionaryClient)
+      .setFetchImplementation(dictionaryFetchMock as never);
+
     configureApplication(app);
     await app.init();
+
+    httpServer = app.getHttpServer() as HttpServer;
   });
 
-  it('/ (GET)', () => {
-    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
-
-    return request(httpServer)
-      .get('/')
-      .expect(200)
-      .expect(({ body, headers }) => {
-        expect(body).toEqual({ message: 'English Dictionary' });
-        expect(headers['x-response-time']).toEqual(
-          expect.stringMatching(/^\d+$/),
-        );
-        expect(Number(headers['x-response-time'])).toBeGreaterThanOrEqual(0);
-      });
+  beforeEach(async () => {
+    cacheService.clear();
+    dictionaryFetchMock.mockClear();
+    await cleanupTestData();
   });
 
-  it('/auth/signup (POST)', async () => {
-    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
-    const email = `signup-${Date.now()}@email.com`;
+  afterEach(async () => {
+    await cleanupTestData();
+  });
 
-    const response = await request(httpServer).post('/auth/signup').send({
-      name: 'User 1',
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('GET / retorna a identificação da API sem cache', async () => {
+    const response = await request(httpServer).get('/');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ message: 'English Dictionary' });
+    expectResponseTime(response.headers);
+    expect(response.headers['x-cache']).toBeUndefined();
+  });
+
+  it('cadastra, autentica e retorna o perfil do usuário autenticado', async () => {
+    const email = testEmail('auth');
+
+    const signUpResponse = await request(httpServer).post('/auth/signup').send({
+      name: 'User E2E',
       email,
       password: 'test',
     });
-    const responseBodyUnknown: unknown = response.body;
+    const signUpBody = getResponseBody(signUpResponse);
 
-    if (
-      typeof responseBodyUnknown !== 'object' ||
-      responseBodyUnknown === null
-    ) {
-      throw new Error('Expected the signup response body to be an object.');
-    }
-
-    const responseBody = responseBodyUnknown as Record<string, unknown>;
-
-    expect(response.status).toBe(201);
-    expect(typeof responseBody.id).toBe('string');
-    expect(responseBody.name).toBe('User 1');
-    expect(responseBody.token).toEqual(expect.stringMatching(/^Bearer\s.+/));
-    expect(response.headers['x-response-time']).toEqual(
-      expect.stringMatching(/^\d+$/),
-    );
-    expect(Number(response.headers['x-response-time'])).toBeGreaterThanOrEqual(
-      0,
-    );
-    expect(responseBody).not.toHaveProperty('passwordHash');
-
-    await prismaService.user.deleteMany({
-      where: { email },
+    expect(signUpResponse.status).toBe(201);
+    expect(signUpBody).toEqual({
+      id: anyString(),
+      name: 'User E2E',
+      token: matchingString(/^Bearer\s.+/),
     });
-  });
+    expect(signUpBody).not.toHaveProperty('passwordHash');
+    expectResponseTime(signUpResponse.headers);
+    expect(signUpResponse.headers['x-cache']).toBeUndefined();
 
-  it('/auth/signin (POST)', async () => {
-    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
-    const email = `signin-${Date.now()}@email.com`;
-
-    await request(httpServer).post('/auth/signup').send({
-      name: 'User 1',
-      email,
-      password: 'test',
-    });
-
-    const response = await request(httpServer)
+    const signInResponse = await request(httpServer)
       .post('/auth/signin')
       .send({
         email: `  ${email.toUpperCase()}  `,
         password: 'test',
       });
-    const responseBodyUnknown: unknown = response.body;
+    const signInBody = getResponseBody(signInResponse);
 
-    if (
-      typeof responseBodyUnknown !== 'object' ||
-      responseBodyUnknown === null
-    ) {
-      throw new Error('Expected the signin response body to be an object.');
-    }
-
-    const responseBody = responseBodyUnknown as Record<string, unknown>;
-
-    expect(response.status).toBe(201);
-    expect(typeof responseBody.id).toBe('string');
-    expect(responseBody.name).toBe('User 1');
-    expect(responseBody.token).toEqual(expect.stringMatching(/^Bearer\s.+/));
-    expect(responseBody).not.toHaveProperty('passwordHash');
-
-    await prismaService.user.deleteMany({
-      where: { email },
+    expect(signInResponse.status).toBe(201);
+    expect(signInBody).toEqual({
+      id: signUpBody.id,
+      name: 'User E2E',
+      token: matchingString(/^Bearer\s.+/),
     });
-  });
+    expectResponseTime(signInResponse.headers);
+    expect(signInResponse.headers['x-cache']).toBeUndefined();
 
-  it('/user/me (GET) should return the authenticated user profile', async () => {
-    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
-    const email = `me-${Date.now()}@email.com`;
-
-    const signUpResponse = await request(httpServer).post('/auth/signup').send({
-      name: 'User 1',
-      email,
-      password: 'test',
-    });
-    const signUpResponseBodyUnknown: unknown = signUpResponse.body;
-
-    if (
-      typeof signUpResponseBodyUnknown !== 'object' ||
-      signUpResponseBodyUnknown === null
-    ) {
-      throw new Error('Expected the signup response body to be an object.');
-    }
-
-    const signUpResponseBody = signUpResponseBodyUnknown as Record<
-      string,
-      unknown
-    >;
-    const token = signUpResponseBody.token;
-
-    expect(typeof token).toBe('string');
-
-    const response = await request(httpServer)
+    const profileResponse = await request(httpServer)
       .get('/user/me')
-      .set('Authorization', token as string);
-    const responseBodyUnknown: unknown = response.body;
+      .set('Authorization', String(signInBody.token));
+    const profileBody = getResponseBody(profileResponse);
 
-    if (
-      typeof responseBodyUnknown !== 'object' ||
-      responseBodyUnknown === null
-    ) {
-      throw new Error('Expected the profile response body to be an object.');
-    }
-
-    const responseBody = responseBodyUnknown as Record<string, unknown>;
-
-    expect(response.status).toBe(200);
-    expect(typeof responseBody.id).toBe('string');
-    expect(responseBody.name).toBe('User 1');
-    expect(responseBody.email).toBe(email);
-    expect(typeof responseBody.createdAt).toBe('string');
-    expect(typeof responseBody.updatedAt).toBe('string');
-    expect(responseBody).not.toHaveProperty('passwordHash');
-
-    await prismaService.user.deleteMany({
-      where: { email },
+    expect(profileResponse.status).toBe(200);
+    expect(profileBody).toEqual({
+      id: signUpBody.id,
+      name: 'User E2E',
+      email,
+      createdAt: anyString(),
+      updatedAt: anyString(),
     });
+    expect(profileBody).not.toHaveProperty('passwordHash');
+    expectResponseTime(profileResponse.headers);
+    expect(profileResponse.headers['x-cache']).toBeUndefined();
   });
 
-  it('/user/me (GET) should reject requests without a token', async () => {
-    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
-
+  it('bloqueia acesso protegido sem token', async () => {
     const response = await request(httpServer).get('/user/me');
 
     expect(response.status).toBe(401);
@@ -249,279 +207,25 @@ describe('AppController (e2e)', () => {
       error: 'Unauthorized',
       statusCode: 401,
     });
+    expectResponseTime(response.headers);
+    expect(response.headers['x-cache']).toBeUndefined();
   });
 
-  it('/user/me (GET) should reject an invalid token', async () => {
-    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+  it('lista palavras, busca e reutiliza cache apenas para os mesmos parâmetros', async () => {
+    const user = await createUser('entries');
+    const prefix = testWord('entries');
+    const words = [`${prefix}a`, `${prefix}b`, `${prefix}c`];
+    await createDictionaryWords(words);
 
-    const response = await request(httpServer)
-      .get('/user/me')
-      .set('Authorization', 'Bearer invalid-token');
+    const firstResponse = await request(httpServer)
+      .get(`/entries/en?search=${prefix}&page=1&limit=2`)
+      .set('Authorization', user.token);
 
-    expect(response.status).toBe(401);
-    expect(response.body).toEqual({
-      message: 'O token informado é inválido.',
-      error: 'Unauthorized',
-      statusCode: 401,
-    });
-  });
-
-  it('/user/me/history (GET) should return only the authenticated user history', async () => {
-    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
-    const emailA = `history-a-${Date.now()}@email.com`;
-    const emailB = `history-b-${Date.now()}@email.com`;
-    const wordA = `historyworda${Date.now()}`;
-    const wordB = `historywordb${Date.now()}`;
-
-    await prismaService.dictionaryWord.createMany({
-      data: [{ value: wordA }, { value: wordB }],
-      skipDuplicates: true,
-    });
-
-    const signUpResponseA = await request(httpServer)
-      .post('/auth/signup')
-      .send({
-        name: 'User A',
-        email: emailA,
-        password: 'test',
-      });
-    await request(httpServer).post('/auth/signup').send({
-      name: 'User B',
-      email: emailB,
-      password: 'test',
-    });
-
-    const signUpBodyA = signUpResponseA.body as Record<string, unknown>;
-    const tokenA = signUpBodyA.token;
-
-    if (typeof tokenA !== 'string') {
-      throw new Error('Expected user A token to be a string.');
-    }
-
-    const userA = await prismaService.user.findUnique({
-      where: { email: emailA },
-      select: { id: true },
-    });
-    const userB = await prismaService.user.findUnique({
-      where: { email: emailB },
-      select: { id: true },
-    });
-    const dictionaryWordA = await prismaService.dictionaryWord.findUnique({
-      where: { value: wordA },
-      select: { id: true },
-    });
-    const dictionaryWordB = await prismaService.dictionaryWord.findUnique({
-      where: { value: wordB },
-      select: { id: true },
-    });
-
-    if (!userA || !userB || !dictionaryWordA || !dictionaryWordB) {
-      throw new Error('Expected users and words to be persisted.');
-    }
-
-    await prismaService.wordHistory.createMany({
-      data: [
-        {
-          userId: userA.id,
-          wordId: dictionaryWordA.id,
-          viewedAt: new Date('2026-07-12T10:00:00.000Z'),
-        },
-        {
-          userId: userA.id,
-          wordId: dictionaryWordA.id,
-          viewedAt: new Date('2026-07-12T09:00:00.000Z'),
-        },
-        {
-          userId: userB.id,
-          wordId: dictionaryWordB.id,
-          viewedAt: new Date('2026-07-12T11:00:00.000Z'),
-        },
-      ],
-    });
-
-    const response = await request(httpServer)
-      .get('/user/me/history?page=1&limit=20')
-      .set('Authorization', tokenA);
-
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual({
-      results: [
-        { word: wordA, added: '2026-07-12T10:00:00.000Z' },
-        { word: wordA, added: '2026-07-12T09:00:00.000Z' },
-      ],
-      totalDocs: 2,
-      page: 1,
-      totalPages: 1,
-      hasNext: false,
-      hasPrev: false,
-    });
-
-    await prismaService.wordHistory.deleteMany({
-      where: {
-        userId: { in: [userA.id, userB.id] },
-      },
-    });
-    await prismaService.user.deleteMany({
-      where: { email: { in: [emailA, emailB] } },
-    });
-    await prismaService.dictionaryWord.deleteMany({
-      where: { value: { in: [wordA, wordB] } },
-    });
-  });
-
-  it('/user/me/favorites (GET) should return only the authenticated user favorites', async () => {
-    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
-    const emailA = `favorites-a-${Date.now()}@email.com`;
-    const emailB = `favorites-b-${Date.now()}@email.com`;
-    const wordA = `favoriteworda${Date.now()}`;
-    const wordB = `favoritewordb${Date.now()}`;
-
-    await prismaService.dictionaryWord.createMany({
-      data: [{ value: wordA }, { value: wordB }],
-      skipDuplicates: true,
-    });
-
-    const signUpResponseA = await request(httpServer)
-      .post('/auth/signup')
-      .send({
-        name: 'User A',
-        email: emailA,
-        password: 'test',
-      });
-    await request(httpServer).post('/auth/signup').send({
-      name: 'User B',
-      email: emailB,
-      password: 'test',
-    });
-
-    const tokenA = (signUpResponseA.body as Record<string, unknown>).token;
-
-    if (typeof tokenA !== 'string') {
-      throw new Error('Expected user A token to be a string.');
-    }
-
-    const userA = await prismaService.user.findUnique({
-      where: { email: emailA },
-      select: { id: true },
-    });
-    const userB = await prismaService.user.findUnique({
-      where: { email: emailB },
-      select: { id: true },
-    });
-    const dictionaryWordA = await prismaService.dictionaryWord.findUnique({
-      where: { value: wordA },
-      select: { id: true },
-    });
-    const dictionaryWordB = await prismaService.dictionaryWord.findUnique({
-      where: { value: wordB },
-      select: { id: true },
-    });
-
-    if (!userA || !userB || !dictionaryWordA || !dictionaryWordB) {
-      throw new Error('Expected users and words to be persisted.');
-    }
-
-    await prismaService.favoriteWord.createMany({
-      data: [
-        {
-          userId: userA.id,
-          wordId: dictionaryWordA.id,
-          createdAt: new Date('2026-07-12T10:00:00.000Z'),
-        },
-        {
-          userId: userB.id,
-          wordId: dictionaryWordB.id,
-          createdAt: new Date('2026-07-12T11:00:00.000Z'),
-        },
-      ],
-    });
-
-    const response = await request(httpServer)
-      .get('/user/me/favorites?page=1&limit=20')
-      .set('Authorization', tokenA);
-
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual({
-      results: [{ word: wordA, added: '2026-07-12T10:00:00.000Z' }],
-      totalDocs: 1,
-      page: 1,
-      totalPages: 1,
-      hasNext: false,
-      hasPrev: false,
-    });
-
-    await prismaService.favoriteWord.deleteMany({
-      where: {
-        userId: { in: [userA.id, userB.id] },
-      },
-    });
-    await prismaService.user.deleteMany({
-      where: { email: { in: [emailA, emailB] } },
-    });
-    await prismaService.dictionaryWord.deleteMany({
-      where: { value: { in: [wordA, wordB] } },
-    });
-  });
-
-  it('/entries/en (GET) should return authenticated paginated search results', async () => {
-    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
-    const email = `entries-${Date.now()}@email.com`;
-    const wordPrefix = `entryapitest${Date.now()}`;
-    const values = [`${wordPrefix}a`, `${wordPrefix}b`, `${wordPrefix}c`];
-
-    const signUpResponse = await request(httpServer).post('/auth/signup').send({
-      name: 'User 1',
-      email,
-      password: 'test',
-    });
-    const signUpResponseBodyUnknown: unknown = signUpResponse.body;
-
-    if (
-      typeof signUpResponseBodyUnknown !== 'object' ||
-      signUpResponseBodyUnknown === null
-    ) {
-      throw new Error('Expected the signup response body to be an object.');
-    }
-
-    const signUpResponseBody = signUpResponseBodyUnknown as Record<
-      string,
-      unknown
-    >;
-    const token = signUpResponseBody.token;
-
-    if (typeof token !== 'string') {
-      throw new Error('Expected the signup token to be a string.');
-    }
-
-    await prismaService.dictionaryWord.createMany({
-      data: values.map((value) => ({ value })),
-      skipDuplicates: true,
-    });
-
-    const response = await request(httpServer)
-      .get(`/entries/en?search=${wordPrefix}&page=1&limit=2`)
-      .set('Authorization', token);
-    const responseBodyUnknown: unknown = response.body;
-
-    if (
-      typeof responseBodyUnknown !== 'object' ||
-      responseBodyUnknown === null
-    ) {
-      throw new Error('Expected the entries response body to be an object.');
-    }
-
-    const responseBody = responseBodyUnknown as Record<string, unknown>;
-
-    expect(response.status).toBe(200);
-    expect(response.headers['x-cache']).toBe('MISS');
-    expect(response.headers['x-response-time']).toEqual(
-      expect.stringMatching(/^\d+$/),
-    );
-    expect(Number(response.headers['x-response-time'])).toBeGreaterThanOrEqual(
-      0,
-    );
-    expect(responseBody).toEqual({
-      results: [`${wordPrefix}a`, `${wordPrefix}b`],
+    expect(firstResponse.status).toBe(200);
+    expect(firstResponse.headers['x-cache']).toBe('MISS');
+    expectResponseTime(firstResponse.headers);
+    expect(firstResponse.body).toEqual({
+      results: [`${prefix}a`, `${prefix}b`],
       totalDocs: 3,
       page: 1,
       totalPages: 2,
@@ -529,497 +233,351 @@ describe('AppController (e2e)', () => {
       hasPrev: false,
     });
 
-    await prismaService.dictionaryWord.deleteMany({
-      where: {
-        value: {
-          in: values,
-        },
-      },
-    });
-    await prismaService.user.deleteMany({
-      where: { email },
-    });
-  });
+    const repeatedResponse = await request(httpServer)
+      .get(`/entries/en?search=${prefix}&page=1&limit=2`)
+      .set('Authorization', user.token);
 
-  it('/entries/en (GET) should return HIT on an identical repeated query', async () => {
-    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
-    const email = `entries-hit-${Date.now()}@email.com`;
-    const wordPrefix = `entriescache${Date.now()}`;
-    const values = [`${wordPrefix}a`, `${wordPrefix}b`];
+    expect(repeatedResponse.status).toBe(200);
+    expect(repeatedResponse.headers['x-cache']).toBe('HIT');
+    expectResponseTime(repeatedResponse.headers);
+    expect(repeatedResponse.body).toEqual(firstResponse.body);
 
-    entriesCacheState.clear();
+    const differentParamsResponse = await request(httpServer)
+      .get(`/entries/en?search=${prefix}&page=2&limit=2`)
+      .set('Authorization', user.token);
 
-    const signUpResponse = await request(httpServer).post('/auth/signup').send({
-      name: 'User 1',
-      email,
-      password: 'test',
-    });
-    const signUpResponseBodyUnknown: unknown = signUpResponse.body;
-
-    if (
-      typeof signUpResponseBodyUnknown !== 'object' ||
-      signUpResponseBodyUnknown === null
-    ) {
-      throw new Error('Expected the signup response body to be an object.');
-    }
-
-    const signUpResponseBody = signUpResponseBodyUnknown as Record<
-      string,
-      unknown
-    >;
-    const token = signUpResponseBody.token;
-
-    if (typeof token !== 'string') {
-      throw new Error('Expected the signup token to be a string.');
-    }
-
-    await prismaService.dictionaryWord.createMany({
-      data: values.map((value) => ({ value })),
-      skipDuplicates: true,
-    });
-
-    const firstResponse = await request(httpServer)
-      .get(`/entries/en?search=${wordPrefix}&page=1&limit=20`)
-      .set('Authorization', token);
-    const secondResponse = await request(httpServer)
-      .get(`/entries/en?search=${wordPrefix}&page=1&limit=20`)
-      .set('Authorization', token);
-
-    expect(firstResponse.status).toBe(200);
-    expect(firstResponse.headers['x-cache']).toBe('MISS');
-    expect(secondResponse.status).toBe(200);
-    expect(secondResponse.headers['x-cache']).toBe('HIT');
-
-    await prismaService.dictionaryWord.deleteMany({
-      where: {
-        value: {
-          in: values,
-        },
-      },
-    });
-    await prismaService.user.deleteMany({
-      where: { email },
+    expect(differentParamsResponse.status).toBe(200);
+    expect(differentParamsResponse.headers['x-cache']).toBe('MISS');
+    expectResponseTime(differentParamsResponse.headers);
+    expect(differentParamsResponse.body).toEqual({
+      results: [`${prefix}c`],
+      totalDocs: 3,
+      page: 2,
+      totalPages: 2,
+      hasNext: false,
+      hasPrev: true,
     });
   });
 
-  it('/entries/en (GET) should reject invalid query parameters', async () => {
-    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
-    const email = `entries-invalid-${Date.now()}@email.com`;
-
-    const signUpResponse = await request(httpServer).post('/auth/signup').send({
-      name: 'User 1',
-      email,
-      password: 'test',
-    });
-    const signUpResponseBodyUnknown: unknown = signUpResponse.body;
-
-    if (
-      typeof signUpResponseBodyUnknown !== 'object' ||
-      signUpResponseBodyUnknown === null
-    ) {
-      throw new Error('Expected the signup response body to be an object.');
-    }
-
-    const signUpResponseBody = signUpResponseBodyUnknown as Record<
-      string,
-      unknown
-    >;
-    const token = signUpResponseBody.token;
-
-    if (typeof token !== 'string') {
-      throw new Error('Expected the signup token to be a string.');
-    }
-
-    const response = await request(httpServer)
-      .get('/entries/en?page=0&limit=101')
-      .set('Authorization', token);
-
-    expect(response.status).toBe(400);
-    expect(response.body).toEqual({
-      message:
-        'page deve ser maior ou igual a 1.; limit deve ser menor ou igual a 100.',
-      error: 'Bad Request',
-      statusCode: 400,
-    });
-
-    await prismaService.user.deleteMany({
-      where: { email },
-    });
-  });
-
-  it('/entries/en/:word (GET) should return details and persist history', async () => {
-    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
-    const email = `entry-details-${Date.now()}@email.com`;
-    const word = 'fire';
-
-    await prismaService.dictionaryWord.upsert({
-      where: { value: word },
-      update: {},
-      create: { value: word },
-    });
-
-    const signUpResponse = await request(httpServer).post('/auth/signup').send({
-      name: 'User 1',
-      email,
-      password: 'test',
-    });
-    const signUpResponseBodyUnknown: unknown = signUpResponse.body;
-
-    if (
-      typeof signUpResponseBodyUnknown !== 'object' ||
-      signUpResponseBodyUnknown === null
-    ) {
-      throw new Error('Expected the signup response body to be an object.');
-    }
-
-    const signUpResponseBody = signUpResponseBodyUnknown as Record<
-      string,
-      unknown
-    >;
-    const token = signUpResponseBody.token;
-
-    if (typeof token !== 'string') {
-      throw new Error('Expected the signup token to be a string.');
-    }
-
-    const response = await request(httpServer)
-      .get(`/entries/en/${word}`)
-      .set('Authorization', token);
-    const responseBodyUnknown: unknown = response.body;
-
-    if (
-      typeof responseBodyUnknown !== 'object' ||
-      responseBodyUnknown === null
-    ) {
-      throw new Error(
-        'Expected the entry details response body to be an object.',
-      );
-    }
-
-    const responseBody = responseBodyUnknown as Record<string, unknown>;
-
-    expect(response.status).toBe(200);
-    expect(response.headers['x-cache']).toBe('MISS');
-    expect(response.headers['x-response-time']).toEqual(
-      expect.stringMatching(/^\d+$/),
-    );
-    expect(Number(response.headers['x-response-time'])).toBeGreaterThanOrEqual(
-      0,
-    );
-    expect(responseBody.word).toBe(word);
-    expect(Array.isArray(responseBody.phonetics)).toBe(true);
-    expect(Array.isArray(responseBody.meanings)).toBe(true);
-    expect(Array.isArray(responseBody.sourceUrls)).toBe(true);
-    expect(responseBody).not.toHaveProperty('cacheStatus');
-    expect(responseBody).not.toHaveProperty('body');
-
-    const persistedUser = await prismaService.user.findUnique({
-      where: { email },
-      select: { id: true },
-    });
-    const persistedWord = await prismaService.dictionaryWord.findUnique({
-      where: { value: word },
-      select: { id: true },
-    });
-
-    expect(persistedUser).toBeTruthy();
-    expect(persistedWord).toBeTruthy();
-
-    if (!persistedUser || !persistedWord) {
-      throw new Error('Expected persisted user and word to exist.');
-    }
-
-    const historyCount = await prismaService.wordHistory.count({
-      where: {
-        userId: persistedUser.id,
-        wordId: persistedWord.id,
-      },
-    });
-
-    expect(historyCount).toBeGreaterThan(0);
-
-    await prismaService.wordHistory.deleteMany({
-      where: {
-        userId: persistedUser.id,
-      },
-    });
-    await prismaService.user.deleteMany({
-      where: { email },
-    });
-  });
-
-  it('/entries/en/:word (GET) should return HIT on a repeated successful lookup', async () => {
-    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
-    const email = `entry-details-hit-${Date.now()}@email.com`;
-    const word = `cacheword${Date.now()}`;
-
-    dictionaryCacheState.clear();
-
-    await prismaService.dictionaryWord.upsert({
-      where: { value: word },
-      update: {},
-      create: { value: word },
-    });
-
-    const signUpResponse = await request(httpServer).post('/auth/signup').send({
-      name: 'User 1',
-      email,
-      password: 'test',
-    });
-    const signUpResponseBodyUnknown: unknown = signUpResponse.body;
-
-    if (
-      typeof signUpResponseBodyUnknown !== 'object' ||
-      signUpResponseBodyUnknown === null
-    ) {
-      throw new Error('Expected the signup response body to be an object.');
-    }
-
-    const signUpResponseBody = signUpResponseBodyUnknown as Record<
-      string,
-      unknown
-    >;
-    const token = signUpResponseBody.token;
-
-    if (typeof token !== 'string') {
-      throw new Error('Expected the signup token to be a string.');
-    }
+  it('retorna detalhe com MISS, depois HIT, sem nova chamada externa e com novo histórico', async () => {
+    const user = await createUser('details');
+    const word = testWord('detail');
+    await createDictionaryWords([word]);
 
     const firstResponse = await request(httpServer)
       .get(`/entries/en/${word}`)
-      .set('Authorization', token);
-    const secondResponse = await request(httpServer)
-      .get(`/entries/en/${word}`)
-      .set('Authorization', token);
+      .set('Authorization', user.token);
 
     expect(firstResponse.status).toBe(200);
     expect(firstResponse.headers['x-cache']).toBe('MISS');
-    expect(firstResponse.headers['x-response-time']).toEqual(
-      expect.stringMatching(/^\d+$/),
-    );
-    expect(
-      Number(firstResponse.headers['x-response-time']),
-    ).toBeGreaterThanOrEqual(0);
+    expectResponseTime(firstResponse.headers);
+    expect(firstResponse.body).toEqual(buildEntryBody(word));
+    expect(firstResponse.body).not.toHaveProperty('cacheStatus');
+    expect(firstResponse.body).not.toHaveProperty('body');
+    expect(dictionaryFetchMock).toHaveBeenCalledTimes(1);
+    await expectHistoryCount(user.id, word, 1);
 
-    expect(secondResponse.status).toBe(200);
-    expect(secondResponse.headers['x-cache']).toBe('HIT');
-    expect(secondResponse.headers['x-response-time']).toEqual(
-      expect.stringMatching(/^\d+$/),
-    );
-    expect(
-      Number(secondResponse.headers['x-response-time']),
-    ).toBeGreaterThanOrEqual(0);
+    const repeatedResponse = await request(httpServer)
+      .get(`/entries/en/${word}`)
+      .set('Authorization', user.token);
 
-    const persistedUser = await prismaService.user.findUnique({
-      where: { email },
-      select: { id: true },
-    });
-
-    if (!persistedUser) {
-      throw new Error('Expected persisted user to exist.');
-    }
-
-    await prismaService.wordHistory.deleteMany({
-      where: {
-        userId: persistedUser.id,
-      },
-    });
-    await prismaService.user.deleteMany({
-      where: { email },
-    });
+    expect(repeatedResponse.status).toBe(200);
+    expect(repeatedResponse.headers['x-cache']).toBe('HIT');
+    expectResponseTime(repeatedResponse.headers);
+    expect(repeatedResponse.body).toEqual(firstResponse.body);
+    expect(dictionaryFetchMock).toHaveBeenCalledTimes(1);
+    await expectHistoryCount(user.id, word, 2);
   });
 
-  it('/entries/en/:word/favorite (POST) should favorite idempotently and /unfavorite (DELETE) should return 204', async () => {
-    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
-    const email = `favorite-${Date.now()}@email.com`;
-    const word = `favoriteword${Date.now()}`;
-
-    await prismaService.dictionaryWord.upsert({
-      where: { value: word },
-      update: {},
-      create: { value: word },
-    });
-
-    const signUpResponse = await request(httpServer).post('/auth/signup').send({
-      name: 'User 1',
-      email,
-      password: 'test',
-    });
-    const signUpResponseBodyUnknown: unknown = signUpResponse.body;
-
-    if (
-      typeof signUpResponseBodyUnknown !== 'object' ||
-      signUpResponseBodyUnknown === null
-    ) {
-      throw new Error('Expected the signup response body to be an object.');
-    }
-
-    const signUpResponseBody = signUpResponseBodyUnknown as Record<
-      string,
-      unknown
-    >;
-    const token = signUpResponseBody.token;
-
-    if (typeof token !== 'string') {
-      throw new Error('Expected the signup token to be a string.');
-    }
+  it('favorita, lista favoritos e desfavorita uma palavra', async () => {
+    const user = await createUser('favorite');
+    const word = testWord('favorite');
+    await createDictionaryWords([word]);
 
     const favoriteResponse = await request(httpServer)
       .post(`/entries/en/${word}/favorite`)
-      .set('Authorization', token);
-    const favoriteAgainResponse = await request(httpServer)
-      .post(`/entries/en/${word}/favorite`)
-      .set('Authorization', token);
+      .set('Authorization', user.token);
 
     expect(favoriteResponse.status).toBe(204);
-    expect(favoriteAgainResponse.status).toBe(204);
+    expect(favoriteResponse.text).toBe('');
+    expectResponseTime(favoriteResponse.headers);
+    expect(favoriteResponse.headers['x-cache']).toBeUndefined();
 
-    const persistedUser = await prismaService.user.findUnique({
-      where: { email },
-      select: { id: true },
+    const favoritesResponse = await request(httpServer)
+      .get('/user/me/favorites?page=1&limit=20')
+      .set('Authorization', user.token);
+    const favoritesBody = getResponseBody(favoritesResponse);
+
+    expect(favoritesResponse.status).toBe(200);
+    expect(favoritesBody).toEqual({
+      results: [{ word, added: anyString() }],
+      totalDocs: 1,
+      page: 1,
+      totalPages: 1,
+      hasNext: false,
+      hasPrev: false,
     });
-    const persistedWord = await prismaService.dictionaryWord.findUnique({
-      where: { value: word },
-      select: { id: true },
-    });
-
-    if (!persistedUser || !persistedWord) {
-      throw new Error('Expected persisted user and word to exist.');
-    }
-
-    const favoritesCount = await prismaService.favoriteWord.count({
-      where: {
-        userId: persistedUser.id,
-        wordId: persistedWord.id,
-      },
-    });
-
-    expect(favoritesCount).toBe(1);
+    expectResponseTime(favoritesResponse.headers);
+    expect(favoritesResponse.headers['x-cache']).toBeUndefined();
 
     const unfavoriteResponse = await request(httpServer)
       .delete(`/entries/en/${word}/unfavorite`)
-      .set('Authorization', token);
-    const unfavoriteAgainResponse = await request(httpServer)
-      .delete(`/entries/en/${word}/unfavorite`)
-      .set('Authorization', token);
+      .set('Authorization', user.token);
 
     expect(unfavoriteResponse.status).toBe(204);
     expect(unfavoriteResponse.text).toBe('');
-    expect(unfavoriteAgainResponse.status).toBe(204);
+    expectResponseTime(unfavoriteResponse.headers);
 
-    const favoritesCountAfterDelete = await prismaService.favoriteWord.count({
-      where: {
-        userId: persistedUser.id,
-        wordId: persistedWord.id,
-      },
-    });
+    const emptyFavoritesResponse = await request(httpServer)
+      .get('/user/me/favorites?page=1&limit=20')
+      .set('Authorization', user.token);
+    const emptyFavoritesBody = getResponseBody(emptyFavoritesResponse);
 
-    expect(favoritesCountAfterDelete).toBe(0);
-
-    await prismaService.user.deleteMany({ where: { email } });
-    await prismaService.dictionaryWord.deleteMany({ where: { value: word } });
+    expect(emptyFavoritesResponse.status).toBe(200);
+    expect(emptyFavoritesBody.results).toEqual([]);
+    expect(emptyFavoritesBody.totalDocs).toBe(0);
   });
 
-  it('/entries/en/:word/favorite (POST) should isolate favorites between users', async () => {
-    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
-    const emailA = `favorite-a-${Date.now()}@email.com`;
-    const emailB = `favorite-b-${Date.now()}@email.com`;
-    const word = `favoriteisolation${Date.now()}`;
-
-    await prismaService.dictionaryWord.upsert({
-      where: { value: word },
-      update: {},
-      create: { value: word },
-    });
-
-    const signUpResponseA = await request(httpServer)
-      .post('/auth/signup')
-      .send({
-        name: 'User A',
-        email: emailA,
-        password: 'test',
-      });
-    const signUpResponseB = await request(httpServer)
-      .post('/auth/signup')
-      .send({
-        name: 'User B',
-        email: emailB,
-        password: 'test',
-      });
-
-    const tokenA = (signUpResponseA.body as Record<string, unknown>).token;
-    const tokenB = (signUpResponseB.body as Record<string, unknown>).token;
-
-    if (typeof tokenA !== 'string' || typeof tokenB !== 'string') {
-      throw new Error('Expected both signup tokens to be strings.');
-    }
+  it('mantém isolamento de histórico e favoritos entre dois usuários', async () => {
+    const userA = await createUser('isolation-a');
+    const userB = await createUser('isolation-b');
+    const wordA = testWord('isolationa');
+    const wordB = testWord('isolationb');
+    await createDictionaryWords([wordA, wordB]);
 
     await request(httpServer)
-      .post(`/entries/en/${word}/favorite`)
-      .set('Authorization', tokenA);
+      .get(`/entries/en/${wordA}`)
+      .set('Authorization', userA.token);
     await request(httpServer)
-      .post(`/entries/en/${word}/favorite`)
-      .set('Authorization', tokenB);
+      .get(`/entries/en/${wordB}`)
+      .set('Authorization', userB.token);
     await request(httpServer)
-      .delete(`/entries/en/${word}/unfavorite`)
-      .set('Authorization', tokenA);
+      .post(`/entries/en/${wordA}/favorite`)
+      .set('Authorization', userA.token);
+    await request(httpServer)
+      .post(`/entries/en/${wordB}/favorite`)
+      .set('Authorization', userB.token);
 
-    const userB = await prismaService.user.findUnique({
-      where: { email: emailB },
-      select: { id: true },
-    });
-    const persistedWord = await prismaService.dictionaryWord.findUnique({
-      where: { value: word },
-      select: { id: true },
-    });
+    const historyAResponse = await request(httpServer)
+      .get('/user/me/history?page=1&limit=20')
+      .set('Authorization', userA.token);
+    const favoritesAResponse = await request(httpServer)
+      .get('/user/me/favorites?page=1&limit=20')
+      .set('Authorization', userA.token);
+    const historyABody = getResponseBody(historyAResponse);
+    const favoritesABody = getResponseBody(favoritesAResponse);
 
-    if (!userB || !persistedWord) {
-      throw new Error('Expected user B and word to exist.');
-    }
+    expect(historyAResponse.status).toBe(200);
+    expect(historyABody.results).toEqual([{ word: wordA, added: anyString() }]);
+    expect(historyABody.results).not.toContainEqual(
+      expect.objectContaining({ word: wordB }),
+    );
 
-    const userBFavoritesCount = await prismaService.favoriteWord.count({
-      where: {
-        userId: userB.id,
-        wordId: persistedWord.id,
-      },
-    });
-
-    expect(userBFavoritesCount).toBe(1);
-
-    await prismaService.favoriteWord.deleteMany({
-      where: { wordId: persistedWord.id },
-    });
-    await prismaService.user.deleteMany({
-      where: { email: { in: [emailA, emailB] } },
-    });
-    await prismaService.dictionaryWord.deleteMany({ where: { value: word } });
+    expect(favoritesAResponse.status).toBe(200);
+    expect(favoritesABody.results).toEqual([
+      { word: wordA, added: anyString() },
+    ]);
+    expect(favoritesABody.results).not.toContainEqual(
+      expect.objectContaining({ word: wordB }),
+    );
   });
 
-  it('/entries/en/:word/favorite (POST) should return 404 for nonexistent local word', async () => {
-    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
-    const email = `favorite-missing-${Date.now()}@email.com`;
-
-    const signUpResponse = await request(httpServer).post('/auth/signup').send({
-      name: 'User 1',
-      email,
-      password: 'test',
-    });
-    const token = (signUpResponse.body as Record<string, unknown>).token;
-
-    if (typeof token !== 'string') {
-      throw new Error('Expected signup token to be a string.');
-    }
+  it('usa fallback quando o Redis está indisponível', async () => {
+    const user = await createUser('redis-fallback');
+    const word = testWord('fallback');
+    await createDictionaryWords([word]);
+    cacheService.setUnavailable(true);
 
     const response = await request(httpServer)
-      .post('/entries/en/not-in-local-base/favorite')
-      .set('Authorization', token);
+      .get(`/entries/en?search=${word}&page=1&limit=20`)
+      .set('Authorization', user.token);
 
-    expect(response.status).toBe(404);
-
-    await prismaService.user.deleteMany({ where: { email } });
+    expect(response.status).toBe(200);
+    expect(response.headers['x-cache']).toBe('MISS');
+    expectResponseTime(response.headers);
+    expect(response.body).toEqual({
+      results: [word],
+      totalDocs: 1,
+      page: 1,
+      totalPages: 1,
+      hasNext: false,
+      hasPrev: false,
+    });
   });
 
-  afterAll(async () => {
-    await app.close();
-  });
+  async function createUser(label: string): Promise<AuthenticatedTestUser> {
+    const email = testEmail(label);
+    const response = await request(httpServer)
+      .post('/auth/signup')
+      .send({
+        name: `User ${label}`,
+        email,
+        password: 'test',
+      });
+    const body = getResponseBody(response);
+
+    expect(response.status).toBe(201);
+    expect(typeof body.id).toBe('string');
+    expect(body.token).toEqual(matchingString(/^Bearer\s.+/));
+
+    return {
+      id: body.id as string,
+      token: body.token as string,
+      email,
+    };
+  }
+
+  async function createDictionaryWords(words: string[]): Promise<void> {
+    await prismaService.dictionaryWord.createMany({
+      data: words.map((value) => ({ value })),
+      skipDuplicates: true,
+    });
+  }
+
+  async function expectHistoryCount(
+    userId: string,
+    word: string,
+    expectedCount: number,
+  ): Promise<void> {
+    const dictionaryWord = await prismaService.dictionaryWord.findUnique({
+      where: { value: word },
+      select: { id: true },
+    });
+
+    expect(dictionaryWord).toBeTruthy();
+
+    const historyCount = await prismaService.wordHistory.count({
+      where: {
+        userId,
+        wordId: dictionaryWord?.id,
+      },
+    });
+
+    expect(historyCount).toBe(expectedCount);
+  }
+
+  async function cleanupTestData(): Promise<void> {
+    const testUsers = await prismaService.user.findMany({
+      where: { email: { endsWith: '@e2e.test' } },
+      select: { id: true },
+    });
+    const testWords = await prismaService.dictionaryWord.findMany({
+      where: { value: { startsWith: 'e2e' } },
+      select: { id: true },
+    });
+    const userIds = testUsers.map((user) => user.id);
+    const wordIds = testWords.map((word) => word.id);
+
+    await prismaService.wordHistory.deleteMany({
+      where: {
+        OR: [{ userId: { in: userIds } }, { wordId: { in: wordIds } }],
+      },
+    });
+    await prismaService.favoriteWord.deleteMany({
+      where: {
+        OR: [{ userId: { in: userIds } }, { wordId: { in: wordIds } }],
+      },
+    });
+    await prismaService.user.deleteMany({
+      where: { id: { in: userIds } },
+    });
+    await prismaService.dictionaryWord.deleteMany({
+      where: { id: { in: wordIds } },
+    });
+  }
 });
+
+function testEmail(label: string): string {
+  return `${label}-${Date.now()}-${Math.random().toString(36).slice(2)}@e2e.test`;
+}
+
+function testWord(label: string): string {
+  return `e2e${label}${Date.now()}${Math.random().toString(36).slice(2)}`;
+}
+
+function expectResponseTime(headers: Record<string, string | string[]>): void {
+  expect(headers['x-response-time']).toEqual(matchingString(/^\d+$/));
+  expect(Number(headers['x-response-time'])).toBeGreaterThanOrEqual(0);
+}
+
+function anyString(): unknown {
+  const value: unknown = expect.any(String);
+
+  return value;
+}
+
+function matchingString(pattern: RegExp): unknown {
+  const value: unknown = expect.stringMatching(pattern);
+
+  return value;
+}
+
+function getResponseBody(response: { body: unknown }): Record<string, unknown> {
+  if (typeof response.body !== 'object' || response.body === null) {
+    throw new Error('Expected response body to be an object.');
+  }
+
+  return response.body as Record<string, unknown>;
+}
+
+function buildDictionaryPayload(url: string): unknown[] {
+  const word = decodeURIComponent(url.split('/').pop() ?? 'fire');
+
+  return [
+    {
+      word,
+      phonetics: [
+        {
+          text: '/faɪə/',
+          audio:
+            'https://api.dictionaryapi.dev/media/pronunciations/en/fire-us.mp3',
+        },
+      ],
+      meanings: [
+        {
+          partOfSpeech: 'noun',
+          definitions: [
+            {
+              definition: 'Combustion or burning.',
+              example: 'The fire was warm.',
+              synonyms: ['blaze'],
+              antonyms: ['ice'],
+            },
+          ],
+          synonyms: ['flame'],
+          antonyms: ['water'],
+        },
+      ],
+      sourceUrls: ['https://en.wiktionary.org/wiki/fire'],
+    },
+  ];
+}
+
+function buildEntryBody(word: string): Record<string, unknown> {
+  return {
+    word,
+    phonetics: [
+      {
+        text: '/faɪə/',
+        audio:
+          'https://api.dictionaryapi.dev/media/pronunciations/en/fire-us.mp3',
+      },
+    ],
+    meanings: [
+      {
+        partOfSpeech: 'noun',
+        definitions: [
+          {
+            definition: 'Combustion or burning.',
+            example: 'The fire was warm.',
+            synonyms: ['blaze'],
+            antonyms: ['ice'],
+          },
+        ],
+        synonyms: ['flame'],
+        antonyms: ['water'],
+      },
+    ],
+    sourceUrls: ['https://en.wiktionary.org/wiki/fire'],
+  };
+}

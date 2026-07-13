@@ -39,6 +39,7 @@ export class HttpLoggingMiddleware implements NestMiddleware {
 
     const startedAt = performance.now();
     response.locals.requestStartedAt = startedAt;
+    response.setHeader('x-response-time', '0');
     const requestBodyText = this.buildRequestBodyText(request);
 
     response.on('finish', () => {

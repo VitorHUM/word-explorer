@@ -26,8 +26,33 @@ Aplicação full-stack para consulta, histórico e gerenciamento de palavras em 
 - TypeScript
 - Tailwind CSS
 
-## Executando a infraestrutura
+## Executando com Docker
+
+Suba PostgreSQL, Redis e back-end:
 
 ```bash
+docker compose up --build
+```
+
+A API fica disponível em `http://localhost:3001` e o healthcheck em `http://localhost:3001/health`.
+
+Execute migrations separadamente, de forma explícita:
+
+```bash
+docker compose run --rm back-end-migrate
+```
+
+Importe o dicionário separadamente, somente quando necessário:
+
+```bash
+docker compose run --rm back-end-import
+```
+
+Comandos úteis:
+
+```bash
+docker compose build
 docker compose up -d
+docker compose ps
+docker compose logs -f back-end
 ```
