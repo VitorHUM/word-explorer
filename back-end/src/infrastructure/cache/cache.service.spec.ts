@@ -145,7 +145,10 @@ describe('CacheService', () => {
 
     await expect(
       cacheService.deleteByPattern('dictionary:entry:en:*'),
-    ).resolves.toBe(2);
+    ).resolves.toEqual({
+      deletedCount: 2,
+      failed: false,
+    });
     expect(redisClient.del).toHaveBeenCalledWith([
       'dictionary:entry:en:fire',
       'dictionary:entry:en:firefly',

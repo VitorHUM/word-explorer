@@ -1,6 +1,8 @@
+import { CacheService } from '../infrastructure/cache/cache.service';
 import {
   chunkWords,
   fetchDictionarySource,
+  importDictionaryWords,
   normalizeDictionaryWord,
   prepareDictionaryWords,
 } from './dictionary-importer';
@@ -55,6 +57,9 @@ describe('dictionaryImporter', () => {
           Promise.resolve({
             ok: true,
             status: 200,
+            headers: {
+              get: () => 'application/json; charset=utf-8',
+            },
             json: () => Promise.resolve({ fire: 1 }),
           }),
         'https://example.com/words.json',
@@ -64,13 +69,16 @@ describe('dictionaryImporter', () => {
       expect(payload).toEqual({ fire: 1 });
     });
 
-    it('should fail when the HTTP status is invalid', async () => {
+    it('should fail when the download status is invalid', async () => {
       await expect(
         fetchDictionarySource(
           () =>
             Promise.resolve({
               ok: false,
               status: 503,
+              headers: {
+                get: () => 'application/json',
+              },
               json: () => Promise.resolve({}),
             }),
           'https://example.com/words.json',
@@ -81,21 +89,211 @@ describe('dictionaryImporter', () => {
       );
     });
 
-    it('should fail when the payload format is invalid', async () => {
+    it('should fail when the content-type is invalid', async () => {
       await expect(
         fetchDictionarySource(
           () =>
             Promise.resolve({
               ok: true,
               status: 200,
-              json: () => Promise.resolve(['fire']),
+              headers: {
+                get: () => 'text/html',
+              },
+              json: () => Promise.resolve({ fire: 1 }),
             }),
           'https://example.com/words.json',
           10,
         ),
       ).rejects.toThrow(
-        'O arquivo de palavras baixado possui um formato inválido.',
+        'O arquivo de palavras foi retornado com um content-type inválido.',
       );
+    });
+  });
+
+  describe('importDictionaryWords', () => {
+    const createPrismaClientMock = () => ({
+      dictionaryWord: {
+        createMany: jest.fn(),
+      },
+      $disconnect: jest.fn(() => Promise.resolve()),
+    });
+
+    const createCacheServiceMock = () => ({
+      deleteByPattern: jest.fn<
+        ReturnType<CacheService['deleteByPattern']>,
+        Parameters<CacheService['deleteByPattern']>
+      >(),
+    });
+
+    const createLoggerMock = () => ({
+      log: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    });
+
+    it('should import in batches and invalidate listing cache after new insertions', async () => {
+      const prismaClientMock = createPrismaClientMock();
+      const cacheServiceMock = createCacheServiceMock();
+      const loggerMock = createLoggerMock();
+
+      prismaClientMock.dictionaryWord.createMany
+        .mockResolvedValueOnce({ count: 2 })
+        .mockResolvedValueOnce({ count: 1 });
+      cacheServiceMock.deleteByPattern.mockResolvedValue({
+        deletedCount: 3,
+        failed: false,
+      });
+
+      const summary = await importDictionaryWords({
+        fetchImplementation: () =>
+          Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: {
+              get: () => 'application/json',
+            },
+            json: () =>
+              Promise.resolve({
+                Fire: true,
+                FIRE: true,
+                Water: true,
+                Earth: true,
+              }),
+          }),
+        prismaClient: prismaClientMock,
+        cacheService: cacheServiceMock,
+        logger: loggerMock,
+      });
+
+      expect(prismaClientMock.dictionaryWord.createMany).toHaveBeenCalledTimes(
+        1,
+      );
+      expect(cacheServiceMock.deleteByPattern).toHaveBeenCalledWith(
+        'dictionary:list:en:*',
+      );
+      expect(summary).toEqual({
+        receivedCount: 4,
+        validCount: 3,
+        insertedCount: 2,
+        ignoredCount: 1,
+        cacheInvalidation: {
+          attempted: true,
+          failed: false,
+          deletedCount: 3,
+        },
+      });
+    });
+
+    it('should be idempotent on a second execution without duplicating data', async () => {
+      const prismaClientMock = createPrismaClientMock();
+      const cacheServiceMock = createCacheServiceMock();
+      const loggerMock = createLoggerMock();
+
+      prismaClientMock.dictionaryWord.createMany.mockResolvedValue({
+        count: 0,
+      });
+
+      const summary = await importDictionaryWords({
+        fetchImplementation: () =>
+          Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: {
+              get: () => 'application/json',
+            },
+            json: () => Promise.resolve({ Fire: true, Water: true }),
+          }),
+        prismaClient: prismaClientMock,
+        cacheService: cacheServiceMock,
+        logger: loggerMock,
+      });
+
+      expect(summary.insertedCount).toBe(0);
+      expect(summary.ignoredCount).toBe(2);
+      expect(summary.cacheInvalidation).toEqual({
+        attempted: false,
+        failed: false,
+        deletedCount: 0,
+      });
+    });
+
+    it('should not invalidate listing cache when no new words are inserted', async () => {
+      const prismaClientMock = createPrismaClientMock();
+      const cacheServiceMock = createCacheServiceMock();
+      const loggerMock = createLoggerMock();
+
+      prismaClientMock.dictionaryWord.createMany.mockResolvedValue({
+        count: 0,
+      });
+
+      await importDictionaryWords({
+        fetchImplementation: () =>
+          Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: {
+              get: () => 'application/json',
+            },
+            json: () => Promise.resolve({ Fire: true }),
+          }),
+        prismaClient: prismaClientMock,
+        cacheService: cacheServiceMock,
+        logger: loggerMock,
+      });
+
+      expect(cacheServiceMock.deleteByPattern).not.toHaveBeenCalled();
+    });
+
+    it('should report cache invalidation failure without failing the import', async () => {
+      const prismaClientMock = createPrismaClientMock();
+      const cacheServiceMock = createCacheServiceMock();
+      const loggerMock = createLoggerMock();
+
+      prismaClientMock.dictionaryWord.createMany.mockResolvedValue({
+        count: 1,
+      });
+      cacheServiceMock.deleteByPattern.mockResolvedValue({
+        deletedCount: 0,
+        failed: true,
+      });
+
+      const summary = await importDictionaryWords({
+        fetchImplementation: () =>
+          Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: {
+              get: () => 'application/json',
+            },
+            json: () => Promise.resolve({ Fire: true }),
+          }),
+        prismaClient: prismaClientMock,
+        cacheService: cacheServiceMock,
+        logger: loggerMock,
+      });
+
+      expect(summary.cacheInvalidation).toEqual({
+        attempted: true,
+        failed: true,
+        deletedCount: 0,
+      });
+      expect(loggerMock.warn).toHaveBeenCalled();
+    });
+
+    it('should fail on download errors', async () => {
+      const prismaClientMock = createPrismaClientMock();
+      const cacheServiceMock = createCacheServiceMock();
+      const loggerMock = createLoggerMock();
+
+      await expect(
+        importDictionaryWords({
+          fetchImplementation: () =>
+            Promise.reject(new Error('network failed')),
+          prismaClient: prismaClientMock,
+          cacheService: cacheServiceMock,
+          logger: loggerMock,
+        }),
+      ).rejects.toThrow('network failed');
     });
   });
 });

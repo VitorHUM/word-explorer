@@ -14,6 +14,11 @@ export interface CacheResult<T> {
   data: T | null;
 }
 
+export interface CacheDeleteByPatternResult {
+  deletedCount: number;
+  failed: boolean;
+}
+
 interface RedisScanOptions {
   MATCH: string;
   COUNT: number;
@@ -132,11 +137,11 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async deleteByPattern(pattern: string): Promise<number> {
+  async deleteByPattern(pattern: string): Promise<CacheDeleteByPatternResult> {
     const isConnected = await this.connectIfNeeded();
 
     if (!isConnected) {
-      return 0;
+      return { deletedCount: 0, failed: true };
     }
 
     try {
@@ -150,14 +155,17 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       }
 
       if (keys.length === 0) {
-        return 0;
+        return { deletedCount: 0, failed: false };
       }
 
-      return await this.redisClient.del(keys);
+      return {
+        deletedCount: await this.redisClient.del(keys),
+        failed: false,
+      };
     } catch (error: unknown) {
       this.logRedisError('remoção por padrão', pattern, error);
 
-      return 0;
+      return { deletedCount: 0, failed: true };
     }
   }
 
