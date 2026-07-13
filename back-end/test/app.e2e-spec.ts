@@ -9,6 +9,7 @@ import { FreeDictionaryClient } from './../src/infrastructure/dictionary/free-di
 describe('AppController (e2e)', () => {
   let app: INestApplication;
   let prismaService: PrismaService;
+  const dictionaryCacheState = new Set<string>();
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -17,15 +18,31 @@ describe('AppController (e2e)', () => {
       .overrideProvider(FreeDictionaryClient)
       .useValue({
         getEnglishEntryWithCache: jest.fn((word: string) =>
-          Promise.resolve({
-            entry: {
-              word,
-              phonetics: [{ text: '/faɪə/' }],
-              meanings: [],
-              sourceUrls: ['https://source.example/fire'],
-            },
-            cacheStatus: 'MISS',
-          }),
+          Promise.resolve(
+            dictionaryCacheState.has(word)
+              ? {
+                  entry: {
+                    word,
+                    phonetics: [{ text: '/faɪə/' }],
+                    meanings: [],
+                    sourceUrls: ['https://source.example/fire'],
+                  },
+                  cacheStatus: 'HIT' as const,
+                }
+              : (() => {
+                  dictionaryCacheState.add(word);
+
+                  return {
+                    entry: {
+                      word,
+                      phonetics: [{ text: '/faɪə/' }],
+                      meanings: [],
+                      sourceUrls: ['https://source.example/fire'],
+                    },
+                    cacheStatus: 'MISS' as const,
+                  };
+                })(),
+          ),
         ),
       })
       .compile();
@@ -396,6 +413,81 @@ describe('AppController (e2e)', () => {
     });
 
     expect(historyCount).toBeGreaterThan(0);
+
+    await prismaService.wordHistory.deleteMany({
+      where: {
+        userId: persistedUser.id,
+      },
+    });
+    await prismaService.user.deleteMany({
+      where: { email },
+    });
+  });
+
+  it('/entries/en/:word (GET) should return HIT on a repeated successful lookup', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const email = `entry-details-hit-${Date.now()}@email.com`;
+    const word = `cacheword${Date.now()}`;
+
+    dictionaryCacheState.clear();
+
+    await prismaService.dictionaryWord.upsert({
+      where: { value: word },
+      update: {},
+      create: { value: word },
+    });
+
+    const signUpResponse = await request(httpServer).post('/auth/signup').send({
+      name: 'User 1',
+      email,
+      password: 'test',
+    });
+    const signUpResponseBodyUnknown: unknown = signUpResponse.body;
+
+    if (
+      typeof signUpResponseBodyUnknown !== 'object' ||
+      signUpResponseBodyUnknown === null
+    ) {
+      throw new Error('Expected the signup response body to be an object.');
+    }
+
+    const signUpResponseBody = signUpResponseBodyUnknown as Record<
+      string,
+      unknown
+    >;
+    const token = signUpResponseBody.token;
+
+    if (typeof token !== 'string') {
+      throw new Error('Expected the signup token to be a string.');
+    }
+
+    const firstResponse = await request(httpServer)
+      .get(`/entries/en/${word}`)
+      .set('Authorization', token);
+    const secondResponse = await request(httpServer)
+      .get(`/entries/en/${word}`)
+      .set('Authorization', token);
+
+    expect(firstResponse.status).toBe(200);
+    expect(firstResponse.headers['x-cache']).toBe('MISS');
+    expect(firstResponse.headers['x-response-time']).toEqual(
+      expect.stringMatching(/^[0-9]+ms$/),
+    );
+
+    expect(secondResponse.status).toBe(200);
+    expect(secondResponse.headers['x-cache']).toBe('HIT');
+    expect(secondResponse.headers['x-response-time']).toEqual(
+      expect.stringMatching(/^[0-9]+ms$/),
+    );
+
+    const persistedUser = await prismaService.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+
+    if (!persistedUser) {
+      throw new Error('Expected persisted user to exist.');
+    }
 
     await prismaService.wordHistory.deleteMany({
       where: {
