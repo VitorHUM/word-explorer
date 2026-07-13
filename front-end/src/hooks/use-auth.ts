@@ -10,6 +10,7 @@ export function useSession() {
     queryKey: queryKeys.session,
     queryFn: getSessionProfile,
     retry: false,
+    staleTime: 60_000,
   });
 }
 
@@ -41,6 +42,8 @@ export function useLogout() {
   return useMutation({
     mutationFn: logout,
     onSuccess: async () => {
+      queryClient.setQueryData(queryKeys.session, null);
+      queryClient.removeQueries({ queryKey: queryKeys.session });
       queryClient.clear();
     },
   });

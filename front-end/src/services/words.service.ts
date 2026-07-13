@@ -28,6 +28,11 @@ export async function getDictionaryWords(params: {
   return paginatedWordsSchema.parse(response);
 }
 
+export async function getRandomDictionarySeed(limit = 8) {
+  const response = await http<unknown>(`/api/entries?page=1&limit=${limit}`);
+  return paginatedWordsSchema.parse(response);
+}
+
 export async function getWordDetails(word: string) {
   const response = await http<unknown>(`/api/entries/${encodeURIComponent(word)}`);
   return wordDetailsSchema.parse(response);

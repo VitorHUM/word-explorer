@@ -14,6 +14,7 @@ export default function LoginPage() {
   const router = useRouter();
   const signInMutation = useSignIn();
   const form = useForm<SignInInput>({
+    mode: "onChange",
     resolver: zodResolver(signInSchema),
     defaultValues: {
       email: "",
@@ -22,25 +23,29 @@ export default function LoginPage() {
   });
 
   async function onSubmit(values: SignInInput) {
-    await signInMutation.mutateAsync(values);
-    router.replace("/");
+    try {
+      await signInMutation.mutateAsync(values);
+      router.replace("/home");
+    } catch {
+      form.setFocus("password");
+    }
   }
 
   return (
     <AuthFormShell
-      description="Entre para consultar o dicionario, acompanhar seu historico e gerenciar favoritos."
+      description="Entre para consultar o dicionário, acompanhar seu histórico e gerenciar favoritos."
       footer={
         <>
-          Nao tem conta? <Link className="text-color-accent underline" href="/register">Criar conta</Link>
+          Não tem conta? <Link className="text-primary underline" href="/register">Criar conta</Link>
         </>
       }
       title="Login"
     >
-      <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
+      <form className="space-y-4" noValidate onSubmit={form.handleSubmit(onSubmit)}>
         <FormField error={form.formState.errors.email?.message} id="email" label="E-mail" type="email" {...form.register("email")} />
         <FormField error={form.formState.errors.password?.message} id="password" label="Senha" type="password" {...form.register("password")} />
         {signInMutation.isError ? <p className="text-sm text-red-600">{signInMutation.error.message}</p> : null}
-        <Button className="w-full" disabled={signInMutation.isPending} type="submit">
+        <Button className="w-full" disabled={signInMutation.isPending || !form.formState.isValid} type="submit">
           {signInMutation.isPending ? "Entrando..." : "Entrar"}
         </Button>
       </form>

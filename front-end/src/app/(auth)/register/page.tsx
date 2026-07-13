@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { AuthFormShell } from "@/components/shared/auth-form-shell";
 import { FormField } from "@/components/shared/form-field";
+import { PasswordCriteria } from "@/components/shared/password-criteria";
 import { Button } from "@/components/ui/button";
 import { useSignUp } from "@/hooks/use-auth";
 import { signUpSchema, type SignUpInput } from "@/lib/validation/auth";
@@ -14,6 +15,7 @@ export default function RegisterPage() {
   const router = useRouter();
   const signUpMutation = useSignUp();
   const form = useForm<SignUpInput>({
+    mode: "onChange",
     resolver: zodResolver(signUpSchema),
     defaultValues: {
       name: "",
@@ -25,26 +27,30 @@ export default function RegisterPage() {
 
   async function onSubmit(values: SignUpInput) {
     await signUpMutation.mutateAsync(values);
-    router.replace("/");
+    router.replace("/home");
   }
+
+  const password = form.watch("password");
+  const confirmPassword = form.watch("confirmPassword");
 
   return (
     <AuthFormShell
       description="Crie sua conta para salvar buscas recentes e palavras favoritas."
       footer={
         <>
-          Ja tem conta? <Link className="text-color-accent underline" href="/login">Fazer login</Link>
+          Já tem conta? <Link className="text-primary underline" href="/login">Fazer login</Link>
         </>
       }
       title="Cadastro"
     >
-      <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
+      <form className="space-y-4" noValidate onSubmit={form.handleSubmit(onSubmit)}>
         <FormField error={form.formState.errors.name?.message} id="name" label="Nome" {...form.register("name")} />
         <FormField error={form.formState.errors.email?.message} id="email" label="E-mail" type="email" {...form.register("email")} />
-        <FormField error={form.formState.errors.password?.message} id="password" label="Senha" type="password" {...form.register("password")} />
-        <FormField error={form.formState.errors.confirmPassword?.message} id="confirmPassword" label="Confirmar senha" type="password" {...form.register("confirmPassword")} />
+        <FormField error={form.formState.errors.password?.message} hideError id="password" label="Senha" type="password" {...form.register("password")} />
+        <FormField error={form.formState.errors.confirmPassword?.message} hideError id="confirmPassword" label="Confirmar senha" type="password" {...form.register("confirmPassword")} />
+        <PasswordCriteria confirmPassword={confirmPassword} password={password} />
         {signUpMutation.isError ? <p className="text-sm text-red-600">{signUpMutation.error.message}</p> : null}
-        <Button className="w-full" disabled={signUpMutation.isPending} type="submit">
+        <Button className="w-full" disabled={signUpMutation.isPending || !form.formState.isValid} type="submit">
           {signUpMutation.isPending ? "Criando conta..." : "Criar conta"}
         </Button>
       </form>

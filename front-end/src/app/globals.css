@@ -2,21 +2,53 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg: #faf7ff;
+  --surface: #ffffff;
+  --surface-soft: #eee2ff;
+  --text: #16072e;
+  --muted: #5e5570;
+  --border: #c7b7e6;
+  --primary: #6200f2;
+  --primary-strong: #4e00c2;
+  --accent: #7a2cf1;
+  --accent-soft: #b080f8;
+  --secondary: #4ecf4d;
+}
+
+html[data-theme="dark"] {
+  --bg: #12071f;
+  --surface: #1b102d;
+  --surface-soft: #26163d;
+  --text: #f7f4ff;
+  --muted: #c7bdd9;
+  --border: #4a366e;
+  --primary: #8f5cff;
+  --primary-strong: #a572ff;
+  --accent: #b080f8;
+  --accent-soft: #d8c0fb;
+  --secondary: #6bff69;
+}
+
 body {
-  @apply bg-color-white font-text text-color-text;
+  background: var(--bg);
+  color: var(--text);
+  @apply font-text antialiased;
 }
 
 a,
 button,
-input {
-  @apply transition-colors;
+input,
+select {
+  @apply transition-colors duration-200;
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #b080f8 #ffffff;
+  scrollbar-color: var(--accent) var(--surface);
 }
 
 ::selection {
-  background: #d8c0fb;
+  background: var(--accent-soft);
+  color: var(--text);
 }

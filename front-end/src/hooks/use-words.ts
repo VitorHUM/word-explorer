@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { DEFAULT_PAGE_SIZE, queryKeys } from "@/lib/constants";
 import {
   favoriteWord,
@@ -8,18 +9,62 @@ import {
   getFavoriteStatus,
   getFavorites,
   getHistory,
+  getRandomDictionarySeed,
   getWordDetails,
   unfavoriteWord,
 } from "@/services/words.service";
 import type { PaginatedUserWords } from "@/types/api";
 
-export function useDictionaryWords(search = "", page = 1, limit = DEFAULT_PAGE_SIZE) {
+export function useDictionaryWords(
+  search = "",
+  page = 1,
+  limit = DEFAULT_PAGE_SIZE,
+  enabled = true,
+) {
   return useQuery({
     queryKey: queryKeys.dictionary(search, page, limit),
     queryFn: () => getDictionaryWords({ search, page, limit }),
+    enabled,
     placeholderData: (previousData) => previousData,
     staleTime: 30_000,
   });
+}
+
+export function useRandomHomeWords(limit = 8) {
+  const seedQuery = useQuery({
+    queryKey: queryKeys.randomDictionarySeed(limit),
+    queryFn: () => getRandomDictionarySeed(limit),
+    staleTime: 60_000,
+  });
+
+  const totalPages = seedQuery.data?.totalPages ?? 1;
+  const [randomPage, setRandomPage] = useState(1);
+
+  useEffect(() => {
+    if (!seedQuery.data) {
+      return;
+    }
+
+    setRandomPage(
+      seedQuery.data.totalPages > 1
+        ? Math.floor(Math.random() * seedQuery.data.totalPages) + 1
+        : 1,
+    );
+  }, [seedQuery.data]);
+
+  const wordsQuery = useQuery({
+    queryKey: queryKeys.dictionary("", randomPage, limit),
+    queryFn: () => getDictionaryWords({ page: randomPage, limit }),
+    enabled: seedQuery.isSuccess && randomPage > 0,
+    staleTime: 60_000,
+  });
+
+  return {
+    ...wordsQuery,
+    randomPage,
+    totalPages,
+    totalDocs: wordsQuery.data?.totalDocs ?? seedQuery.data?.totalDocs ?? 0,
+  };
 }
 
 export function useWordDetails(word: string) {

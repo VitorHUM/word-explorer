@@ -21,6 +21,20 @@ jest.mock("@/hooks/use-debounced-value", () => ({
 
 jest.mock("@/hooks/use-words", () => ({
   useDictionaryWords: () => mockQueryResult,
+  useRandomHomeWords: () => ({
+    ...mockQueryResult,
+    randomPage: 42,
+    totalPages: 100,
+    totalDocs: 2000,
+  }),
+  useFavoriteStatus: () => ({
+    data: false,
+    isLoading: false,
+  }),
+  useToggleFavorite: () => ({
+    mutate: jest.fn(),
+    isPending: false,
+  }),
 }));
 
 describe("WordSearchPanel", () => {

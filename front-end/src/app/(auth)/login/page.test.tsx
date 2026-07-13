@@ -9,6 +9,10 @@ jest.mock("next/navigation", () => ({
   useRouter: () => ({ replace }),
 }));
 
+jest.mock("@/components/shared/theme-toggle", () => ({
+  ThemeToggle: () => <div data-testid="theme-toggle" />,
+}));
+
 jest.mock("@/hooks/use-auth", () => ({
   useSignIn: () => ({
     mutateAsync,
@@ -22,15 +26,10 @@ describe("LoginPage", () => {
     jest.clearAllMocks();
   });
 
-  it("valida campos obrigatorios", async () => {
-    const user = userEvent.setup();
-
+  it("mantem o botao desabilitado enquanto o formulario for invalido", () => {
     render(<LoginPage />);
 
-    await user.click(screen.getByRole("button", { name: /entrar/i }));
-
-    expect(await screen.findByText("Informe um e-mail valido.")).toBeInTheDocument();
-    expect(screen.getByText("Informe a senha.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /entrar/i })).toBeDisabled();
   });
 
   it("envia formulario com sucesso", async () => {
@@ -40,7 +39,7 @@ describe("LoginPage", () => {
     render(<LoginPage />);
 
     await user.type(screen.getByLabelText(/e-mail/i), "user@example.com");
-    await user.type(screen.getByLabelText(/senha/i), "test");
+    await user.type(screen.getByLabelText(/^senha$/i), "test");
     await user.click(screen.getByRole("button", { name: /entrar/i }));
 
     await waitFor(() => {
@@ -48,7 +47,7 @@ describe("LoginPage", () => {
         email: "user@example.com",
         password: "test",
       });
-      expect(replace).toHaveBeenCalledWith("/");
+      expect(replace).toHaveBeenCalledWith("/home");
     });
   });
 });

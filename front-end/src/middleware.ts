@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { AUTH_COOKIE_NAME } from "@/lib/constants";
 
-const publicRoutes = ["/login", "/register"];
+const publicRoutes = ["/", "/login", "/register"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -18,8 +18,8 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (token && isPublicRoute) {
-    return NextResponse.redirect(new URL("/", request.url));
+  if (token && ["/login", "/register"].includes(pathname)) {
+    return NextResponse.redirect(new URL("/home", request.url));
   }
 
   return NextResponse.next();

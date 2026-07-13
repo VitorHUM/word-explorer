@@ -10,7 +10,7 @@ const raleway = Raleway({
 
 export const metadata: Metadata = {
   title: "Word Explorer",
-  description: "Dicionario com busca, historico e favoritos.",
+  description: "Dicionário com busca, histórico e favoritos.",
 };
 
 export default function RootLayout({
@@ -19,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <body className={raleway.variable}>
         <Providers>{children}</Providers>
       </body>

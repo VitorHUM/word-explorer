@@ -9,7 +9,11 @@ export class HttpError extends Error {
   }
 }
 
-export async function http<T>(input: RequestInfo | URL, init?: RequestInit) {
+type HttpOptions = RequestInit & {
+  redirectOnUnauthorized?: boolean;
+};
+
+export async function http<T>(input: RequestInfo | URL, init?: HttpOptions) {
   const response = await fetch(input, {
     ...init,
     headers: {
@@ -28,7 +32,7 @@ export async function http<T>(input: RequestInfo | URL, init?: RequestInit) {
       message = response.statusText || message;
     }
 
-    if (response.status === 401 && typeof window !== "undefined") {
+    if (response.status === 401 && init?.redirectOnUnauthorized !== false && typeof window !== "undefined") {
       window.location.href = "/login";
     }
 

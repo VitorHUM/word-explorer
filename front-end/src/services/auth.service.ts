@@ -8,6 +8,7 @@ export async function signIn(payload: SignInInput) {
   const response = await http<unknown>("/api/auth/signin", {
     method: "POST",
     body: JSON.stringify(body),
+    redirectOnUnauthorized: false,
   });
 
   return authResponseSchema.parse(response);
@@ -22,16 +23,22 @@ export async function signUp(payload: SignUpInput) {
       email: data.email,
       password: data.password,
     }),
+    redirectOnUnauthorized: false,
   });
 
   return authResponseSchema.parse(response);
 }
 
 export async function getSessionProfile() {
-  const response = await http<unknown>("/api/auth/session");
+  const response = await http<unknown>("/api/auth/session", {
+    redirectOnUnauthorized: false,
+  });
   return profileSchema.parse(response);
 }
 
 export async function logout() {
-  await http("/api/auth/logout", { method: "POST" });
+  await http("/api/auth/logout", {
+    method: "POST",
+    redirectOnUnauthorized: false,
+  });
 }

@@ -19,12 +19,13 @@ export function FavoriteButton({
 
   return (
     <Button
+      aria-label={isFavorite ? `Desfavoritar ${word}` : `Favoritar ${word}`}
       disabled={isLoading}
       onClick={() => toggleMutation.mutate(isFavorite)}
+      size="sm"
       variant={isFavorite ? "primary" : "secondary"}
     >
-      <Heart className={`mr-2 h-4 w-4 ${isFavorite ? "fill-current" : ""}`} />
-      {isFavorite ? "Desfavoritar" : "Favoritar"}
+      <Heart className={`h-4 w-4 ${isFavorite ? "fill-current" : ""}`} />
     </Button>
   );
 }

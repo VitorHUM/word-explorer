@@ -9,6 +9,10 @@ jest.mock("next/navigation", () => ({
   useRouter: () => ({ replace }),
 }));
 
+jest.mock("@/components/shared/theme-toggle", () => ({
+  ThemeToggle: () => <div data-testid="theme-toggle" />,
+}));
+
 jest.mock("@/hooks/use-auth", () => ({
   useSignUp: () => ({
     mutateAsync,
@@ -22,7 +26,7 @@ describe("RegisterPage", () => {
     jest.clearAllMocks();
   });
 
-  it("valida confirmacao de senha", async () => {
+  it("mantem o botao desabilitado quando a confirmacao da senha estiver diferente", async () => {
     const user = userEvent.setup();
 
     render(<RegisterPage />);
@@ -31,9 +35,8 @@ describe("RegisterPage", () => {
     await user.type(screen.getByLabelText(/e-mail/i), "user@example.com");
     await user.type(screen.getByLabelText(/^senha$/i), "1234");
     await user.type(screen.getByLabelText(/confirmar senha/i), "4321");
-    await user.click(screen.getByRole("button", { name: /criar conta/i }));
 
-    expect(await screen.findByText("As senhas precisam ser iguais.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /criar conta/i })).toBeDisabled();
   });
 
   it("envia cadastro com sucesso", async () => {
@@ -55,7 +58,7 @@ describe("RegisterPage", () => {
         password: "1234",
         confirmPassword: "1234",
       });
-      expect(replace).toHaveBeenCalledWith("/");
+      expect(replace).toHaveBeenCalledWith("/home");
     });
   });
 });
