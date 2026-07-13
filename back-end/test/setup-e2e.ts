@@ -18,6 +18,6 @@ process.env.THROTTLE_LIMIT ??= '60';
 process.env.AUTH_THROTTLE_TTL_MS ??= '60000';
 process.env.AUTH_THROTTLE_LIMIT ??= '1000';
 process.env.JWT_SECRET ??= 'e2e-test-secret';
-process.env.JWT_EXPIRES_IN ??= '15m';
+process.env.JWT_EXPIRES_IN ??= '60m';
 process.env.DICTIONARY_API_URL ??= 'https://dictionary.e2e.test/api/v2';
 process.env.DICTIONARY_CACHE_TTL_SECONDS ??= '60';

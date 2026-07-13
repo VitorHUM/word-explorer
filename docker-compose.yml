@@ -44,8 +44,12 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_TTL_SECONDS: 3600
+      THROTTLE_TTL_MS: 60000
+      THROTTLE_LIMIT: 300
+      AUTH_THROTTLE_TTL_MS: 60000
+      AUTH_THROTTLE_LIMIT: 30
       JWT_SECRET: ${JWT_SECRET:-change-me-in-compose}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-60m}
       DICTIONARY_API_URL: ${DICTIONARY_API_URL:-https://api.dictionaryapi.dev/api/v2}
       DICTIONARY_CACHE_TTL_SECONDS: 3600
     ports:
@@ -91,6 +95,20 @@ services:
       redis:
         condition: service_healthy
     command: ['npm', 'run', 'dictionary:import:prod']
+
+  front-end:
+    build:
+      context: ./front-end
+    container_name: word-explorer-front-end
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      API_BASE_URL: http://back-end:3001
+    ports:
+      - '3000:3000'
+    depends_on:
+      back-end:
+        condition: service_healthy
 
 volumes:
   postgres-data:
