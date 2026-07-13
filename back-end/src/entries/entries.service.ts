@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import type { AuthenticatedUser } from '../auth/types/auth.type';
 import { buildPaginatedResponse } from '../common/dtos/pagination.dto';
 import { CacheService } from '../infrastructure/cache/cache.service';
@@ -131,6 +132,42 @@ export class EntriesService {
     };
   }
 
+  async favoriteWord(
+    authenticatedUser: AuthenticatedUser,
+    word: string,
+  ): Promise<void> {
+    const localWord = await this.findLocalWordOrThrow(word);
+
+    try {
+      await this.prismaService.favoriteWord.create({
+        data: {
+          userId: authenticatedUser.id,
+          wordId: localWord.id,
+        },
+      });
+    } catch (error: unknown) {
+      if (this.isUniqueConstraintError(error)) {
+        return;
+      }
+
+      throw error;
+    }
+  }
+
+  async unfavoriteWord(
+    authenticatedUser: AuthenticatedUser,
+    word: string,
+  ): Promise<void> {
+    const localWord = await this.findLocalWordOrThrow(word);
+
+    await this.prismaService.favoriteWord.deleteMany({
+      where: {
+        userId: authenticatedUser.id,
+        wordId: localWord.id,
+      },
+    });
+  }
+
   private mapEntryDetails(entryDetails: FreeDictionaryResult): EntryDetailsDto {
     return {
       word: entryDetails.word,
@@ -144,9 +181,39 @@ export class EntriesService {
     return word.trim().toLowerCase();
   }
 
+  private async findLocalWordOrThrow(word: string): Promise<{ id: string }> {
+    const normalizedWord = this.normalizeWord(word);
+    const localWord = await this.prismaService.dictionaryWord.findUnique({
+      where: {
+        value: normalizedWord,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!localWord) {
+      throw new NotFoundException('Palavra não encontrada na base local.');
+    }
+
+    return localWord;
+  }
+
   private normalizeSearch(search?: string): string | undefined {
     const normalizedSearch = search?.trim().toLowerCase();
 
     return normalizedSearch || undefined;
+  }
+
+  private isUniqueConstraintError(
+    error: unknown,
+  ): error is Prisma.PrismaClientKnownRequestError {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError ||
+      (typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === 'P2002')
+    );
   }
 }

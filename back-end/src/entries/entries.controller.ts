@@ -1,7 +1,18 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -86,5 +97,58 @@ export class EntriesController {
       authenticatedUser,
       params.word,
     );
+  }
+
+  @Post('en/:word/favorite')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('bearer')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Favoritar uma palavra',
+  })
+  @ApiNoContentResponse({
+    description: 'Palavra favoritada com sucesso ou já favoritada.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Falha na validação dos parâmetros da requisição.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'O token está ausente, malformado, inválido ou expirado.',
+  })
+  @ApiNotFoundResponse({
+    description: 'Palavra não encontrada na base local.',
+  })
+  async favoriteWord(
+    @CurrentUser() authenticatedUser: AuthenticatedUser,
+    @Param() params: EntryWordParamDto,
+  ): Promise<void> {
+    await this.entriesService.favoriteWord(authenticatedUser, params.word);
+  }
+
+  @Delete('en/:word/unfavorite')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('bearer')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Desfavoritar uma palavra',
+  })
+  @ApiNoContentResponse({
+    description:
+      'Palavra desfavoritada com sucesso ou não favoritada anteriormente.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Falha na validação dos parâmetros da requisição.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'O token está ausente, malformado, inválido ou expirado.',
+  })
+  @ApiNotFoundResponse({
+    description: 'Palavra não encontrada na base local.',
+  })
+  async unfavoriteWord(
+    @CurrentUser() authenticatedUser: AuthenticatedUser,
+    @Param() params: EntryWordParamDto,
+  ): Promise<void> {
+    await this.entriesService.unfavoriteWord(authenticatedUser, params.word);
   }
 }

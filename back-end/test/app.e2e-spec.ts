@@ -735,6 +735,196 @@ describe('AppController (e2e)', () => {
     });
   });
 
+  it('/entries/en/:word/favorite (POST) should favorite idempotently and /unfavorite (DELETE) should return 204', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const email = `favorite-${Date.now()}@email.com`;
+    const word = `favoriteword${Date.now()}`;
+
+    await prismaService.dictionaryWord.upsert({
+      where: { value: word },
+      update: {},
+      create: { value: word },
+    });
+
+    const signUpResponse = await request(httpServer).post('/auth/signup').send({
+      name: 'User 1',
+      email,
+      password: 'test',
+    });
+    const signUpResponseBodyUnknown: unknown = signUpResponse.body;
+
+    if (
+      typeof signUpResponseBodyUnknown !== 'object' ||
+      signUpResponseBodyUnknown === null
+    ) {
+      throw new Error('Expected the signup response body to be an object.');
+    }
+
+    const signUpResponseBody = signUpResponseBodyUnknown as Record<
+      string,
+      unknown
+    >;
+    const token = signUpResponseBody.token;
+
+    if (typeof token !== 'string') {
+      throw new Error('Expected the signup token to be a string.');
+    }
+
+    const favoriteResponse = await request(httpServer)
+      .post(`/entries/en/${word}/favorite`)
+      .set('Authorization', token);
+    const favoriteAgainResponse = await request(httpServer)
+      .post(`/entries/en/${word}/favorite`)
+      .set('Authorization', token);
+
+    expect(favoriteResponse.status).toBe(204);
+    expect(favoriteAgainResponse.status).toBe(204);
+
+    const persistedUser = await prismaService.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    const persistedWord = await prismaService.dictionaryWord.findUnique({
+      where: { value: word },
+      select: { id: true },
+    });
+
+    if (!persistedUser || !persistedWord) {
+      throw new Error('Expected persisted user and word to exist.');
+    }
+
+    const favoritesCount = await prismaService.favoriteWord.count({
+      where: {
+        userId: persistedUser.id,
+        wordId: persistedWord.id,
+      },
+    });
+
+    expect(favoritesCount).toBe(1);
+
+    const unfavoriteResponse = await request(httpServer)
+      .delete(`/entries/en/${word}/unfavorite`)
+      .set('Authorization', token);
+    const unfavoriteAgainResponse = await request(httpServer)
+      .delete(`/entries/en/${word}/unfavorite`)
+      .set('Authorization', token);
+
+    expect(unfavoriteResponse.status).toBe(204);
+    expect(unfavoriteResponse.text).toBe('');
+    expect(unfavoriteAgainResponse.status).toBe(204);
+
+    const favoritesCountAfterDelete = await prismaService.favoriteWord.count({
+      where: {
+        userId: persistedUser.id,
+        wordId: persistedWord.id,
+      },
+    });
+
+    expect(favoritesCountAfterDelete).toBe(0);
+
+    await prismaService.user.deleteMany({ where: { email } });
+    await prismaService.dictionaryWord.deleteMany({ where: { value: word } });
+  });
+
+  it('/entries/en/:word/favorite (POST) should isolate favorites between users', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const emailA = `favorite-a-${Date.now()}@email.com`;
+    const emailB = `favorite-b-${Date.now()}@email.com`;
+    const word = `favoriteisolation${Date.now()}`;
+
+    await prismaService.dictionaryWord.upsert({
+      where: { value: word },
+      update: {},
+      create: { value: word },
+    });
+
+    const signUpResponseA = await request(httpServer)
+      .post('/auth/signup')
+      .send({
+        name: 'User A',
+        email: emailA,
+        password: 'test',
+      });
+    const signUpResponseB = await request(httpServer)
+      .post('/auth/signup')
+      .send({
+        name: 'User B',
+        email: emailB,
+        password: 'test',
+      });
+
+    const tokenA = (signUpResponseA.body as Record<string, unknown>).token;
+    const tokenB = (signUpResponseB.body as Record<string, unknown>).token;
+
+    if (typeof tokenA !== 'string' || typeof tokenB !== 'string') {
+      throw new Error('Expected both signup tokens to be strings.');
+    }
+
+    await request(httpServer)
+      .post(`/entries/en/${word}/favorite`)
+      .set('Authorization', tokenA);
+    await request(httpServer)
+      .post(`/entries/en/${word}/favorite`)
+      .set('Authorization', tokenB);
+    await request(httpServer)
+      .delete(`/entries/en/${word}/unfavorite`)
+      .set('Authorization', tokenA);
+
+    const userB = await prismaService.user.findUnique({
+      where: { email: emailB },
+      select: { id: true },
+    });
+    const persistedWord = await prismaService.dictionaryWord.findUnique({
+      where: { value: word },
+      select: { id: true },
+    });
+
+    if (!userB || !persistedWord) {
+      throw new Error('Expected user B and word to exist.');
+    }
+
+    const userBFavoritesCount = await prismaService.favoriteWord.count({
+      where: {
+        userId: userB.id,
+        wordId: persistedWord.id,
+      },
+    });
+
+    expect(userBFavoritesCount).toBe(1);
+
+    await prismaService.favoriteWord.deleteMany({
+      where: { wordId: persistedWord.id },
+    });
+    await prismaService.user.deleteMany({
+      where: { email: { in: [emailA, emailB] } },
+    });
+    await prismaService.dictionaryWord.deleteMany({ where: { value: word } });
+  });
+
+  it('/entries/en/:word/favorite (POST) should return 404 for nonexistent local word', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const email = `favorite-missing-${Date.now()}@email.com`;
+
+    const signUpResponse = await request(httpServer).post('/auth/signup').send({
+      name: 'User 1',
+      email,
+      password: 'test',
+    });
+    const token = (signUpResponse.body as Record<string, unknown>).token;
+
+    if (typeof token !== 'string') {
+      throw new Error('Expected signup token to be a string.');
+    }
+
+    const response = await request(httpServer)
+      .post('/entries/en/not-in-local-base/favorite')
+      .set('Authorization', token);
+
+    expect(response.status).toBe(404);
+
+    await prismaService.user.deleteMany({ where: { email } });
+  });
+
   afterAll(async () => {
     await app.close();
   });
