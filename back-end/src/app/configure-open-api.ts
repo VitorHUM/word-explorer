@@ -72,6 +72,8 @@ export function configureOpenApi(app: INestApplication): void {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
+        description: 'Insira o seu token JWT (sem o prefixo "Bearer")',
+        in: 'header',
       },
       'bearer',
     );
