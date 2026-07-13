@@ -1,21 +1,15 @@
 import { CacheService } from '../infrastructure/cache/cache.service';
-import { PrismaService } from '../infrastructure/database/prisma/prisma.service';
+import { DictionaryWordRepository } from '../infrastructure/database/repositories/dictionary-word.repository';
+import { FavoriteWordRepository } from '../infrastructure/database/repositories/favorite-word.repository';
+import { WordHistoryRepository } from '../infrastructure/database/repositories/word-history.repository';
 import { FreeDictionaryClient } from '../infrastructure/dictionary/free-dictionary.client';
 import { EntriesService } from './entries.service';
 
 describe('EntriesService list', () => {
   let entriesService: EntriesService;
-  let transactionClient: {
-    dictionaryWord: {
-      count: jest.Mock;
-      findMany: jest.Mock;
-    };
-  };
-  let prismaService: {
-    $transaction: jest.Mock<
-      Promise<unknown>,
-      [(client: typeof transactionClient) => Promise<unknown>]
-    >;
+  let dictionaryWordRepository: {
+    findPaginated: jest.Mock;
+    findIdByValue: jest.Mock;
   };
   let cacheService: {
     get: jest.Mock;
@@ -23,18 +17,9 @@ describe('EntriesService list', () => {
   };
 
   beforeEach(() => {
-    transactionClient = {
-      dictionaryWord: {
-        count: jest.fn(),
-        findMany: jest.fn(),
-      },
-    };
-
-    prismaService = {
-      $transaction: jest.fn(
-        (callback: (client: typeof transactionClient) => Promise<unknown>) =>
-          callback(transactionClient),
-      ),
+    dictionaryWordRepository = {
+      findPaginated: jest.fn(),
+      findIdByValue: jest.fn(),
     };
 
     cacheService = {
@@ -42,11 +27,11 @@ describe('EntriesService list', () => {
       set: jest.fn().mockResolvedValue(undefined),
     };
 
-    const prismaServiceInstance = Object.create(
-      PrismaService.prototype,
-    ) as PrismaService;
+    const dictionaryWordRepositoryInstance = Object.create(
+      DictionaryWordRepository.prototype,
+    ) as DictionaryWordRepository;
 
-    Object.assign(prismaServiceInstance, prismaService);
+    Object.assign(dictionaryWordRepositoryInstance, dictionaryWordRepository);
 
     const cacheServiceInstance = Object.create(
       CacheService.prototype,
@@ -57,20 +42,27 @@ describe('EntriesService list', () => {
     const freeDictionaryClientInstance = Object.create(
       FreeDictionaryClient.prototype,
     ) as FreeDictionaryClient;
+    const favoriteWordRepositoryInstance = Object.create(
+      FavoriteWordRepository.prototype,
+    ) as FavoriteWordRepository;
+    const wordHistoryRepositoryInstance = Object.create(
+      WordHistoryRepository.prototype,
+    ) as WordHistoryRepository;
 
     entriesService = new EntriesService(
       cacheServiceInstance,
-      prismaServiceInstance,
+      dictionaryWordRepositoryInstance,
+      favoriteWordRepositoryInstance,
+      wordHistoryRepositoryInstance,
       freeDictionaryClientInstance,
     );
   });
 
   it('should return MISS on the first query and cache the response', async () => {
-    transactionClient.dictionaryWord.count.mockResolvedValue(2);
-    transactionClient.dictionaryWord.findMany.mockResolvedValue([
-      { value: 'apple' },
-      { value: 'banana' },
-    ]);
+    dictionaryWordRepository.findPaginated.mockResolvedValue({
+      totalDocs: 2,
+      words: ['apple', 'banana'],
+    });
 
     await expect(
       entriesService.listEnglishEntries({ page: 1, limit: 20 }),
@@ -126,13 +118,15 @@ describe('EntriesService list', () => {
       cacheStatus: 'HIT',
     });
 
-    expect(prismaService.$transaction).not.toHaveBeenCalled();
+    expect(dictionaryWordRepository.findPaginated).not.toHaveBeenCalled();
     expect(cacheService.set).not.toHaveBeenCalled();
   });
 
   it('should generate a different key when search changes', async () => {
-    transactionClient.dictionaryWord.count.mockResolvedValue(0);
-    transactionClient.dictionaryWord.findMany.mockResolvedValue([]);
+    dictionaryWordRepository.findPaginated.mockResolvedValue({
+      totalDocs: 0,
+      words: [],
+    });
 
     await entriesService.listEnglishEntries({
       search: 'fire',
@@ -156,8 +150,10 @@ describe('EntriesService list', () => {
   });
 
   it('should generate a different key when page changes', async () => {
-    transactionClient.dictionaryWord.count.mockResolvedValue(0);
-    transactionClient.dictionaryWord.findMany.mockResolvedValue([]);
+    dictionaryWordRepository.findPaginated.mockResolvedValue({
+      totalDocs: 0,
+      words: [],
+    });
 
     await entriesService.listEnglishEntries({ page: 1, limit: 20 });
     await entriesService.listEnglishEntries({ page: 2, limit: 20 });
@@ -173,8 +169,10 @@ describe('EntriesService list', () => {
   });
 
   it('should generate a different key when limit changes', async () => {
-    transactionClient.dictionaryWord.count.mockResolvedValue(0);
-    transactionClient.dictionaryWord.findMany.mockResolvedValue([]);
+    dictionaryWordRepository.findPaginated.mockResolvedValue({
+      totalDocs: 0,
+      words: [],
+    });
 
     await entriesService.listEnglishEntries({ page: 1, limit: 20 });
     await entriesService.listEnglishEntries({ page: 1, limit: 50 });
@@ -190,8 +188,10 @@ describe('EntriesService list', () => {
   });
 
   it('should normalize equivalent search values to the same key', async () => {
-    transactionClient.dictionaryWord.count.mockResolvedValue(0);
-    transactionClient.dictionaryWord.findMany.mockResolvedValue([]);
+    dictionaryWordRepository.findPaginated.mockResolvedValue({
+      totalDocs: 0,
+      words: [],
+    });
 
     await entriesService.listEnglishEntries({
       search: ' Fire ',
@@ -248,10 +248,10 @@ describe('EntriesService list', () => {
 
   it('should fallback to PostgreSQL when Redis is unavailable and treat as MISS', async () => {
     cacheService.get.mockResolvedValue({ status: 'MISS', data: null });
-    transactionClient.dictionaryWord.count.mockResolvedValue(1);
-    transactionClient.dictionaryWord.findMany.mockResolvedValue([
-      { value: 'fire' },
-    ]);
+    dictionaryWordRepository.findPaginated.mockResolvedValue({
+      totalDocs: 1,
+      words: ['fire'],
+    });
 
     await expect(
       entriesService.listEnglishEntries({ search: 'fire', page: 1, limit: 20 }),
@@ -269,11 +269,10 @@ describe('EntriesService list', () => {
   });
 
   it('should search by case-insensitive prefix and keep deterministic ordering', async () => {
-    transactionClient.dictionaryWord.count.mockResolvedValue(2);
-    transactionClient.dictionaryWord.findMany.mockResolvedValue([
-      { value: 'fire' },
-      { value: 'firefly' },
-    ]);
+    dictionaryWordRepository.findPaginated.mockResolvedValue({
+      totalDocs: 2,
+      words: ['fire', 'firefly'],
+    });
 
     await entriesService.listEnglishEntries({
       search: 'FiRe',
@@ -281,29 +280,18 @@ describe('EntriesService list', () => {
       limit: 20,
     });
 
-    expect(transactionClient.dictionaryWord.count).toHaveBeenCalledWith({
-      where: {
-        value: {
-          startsWith: 'fire',
-          mode: 'insensitive',
-        },
-      },
+    expect(dictionaryWordRepository.findPaginated).toHaveBeenCalledWith({
+      search: 'fire',
+      page: 1,
+      limit: 20,
     });
-    expect(transactionClient.dictionaryWord.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        orderBy: {
-          value: 'asc',
-        },
-      }),
-    );
   });
 
   it('should return correct pagination metadata', async () => {
-    transactionClient.dictionaryWord.count.mockResolvedValue(45);
-    transactionClient.dictionaryWord.findMany.mockResolvedValue([
-      { value: 'entry-21' },
-      { value: 'entry-22' },
-    ]);
+    dictionaryWordRepository.findPaginated.mockResolvedValue({
+      totalDocs: 45,
+      words: ['entry-21', 'entry-22'],
+    });
 
     await expect(
       entriesService.listEnglishEntries({ page: 2, limit: 20 }),

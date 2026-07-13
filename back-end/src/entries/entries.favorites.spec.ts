@@ -1,20 +1,19 @@
 import { NotFoundException } from '@nestjs/common';
 import type { AuthenticatedUser } from '../auth/types/auth.type';
 import { CacheService } from '../infrastructure/cache/cache.service';
-import { PrismaService } from '../infrastructure/database/prisma/prisma.service';
+import { DictionaryWordRepository } from '../infrastructure/database/repositories/dictionary-word.repository';
+import { FavoriteWordRepository } from '../infrastructure/database/repositories/favorite-word.repository';
+import { WordHistoryRepository } from '../infrastructure/database/repositories/word-history.repository';
 import { FreeDictionaryClient } from '../infrastructure/dictionary/free-dictionary.client';
 import { EntriesService } from './entries.service';
 
 describe('EntriesService favorites', () => {
   let entriesService: EntriesService;
   let cacheService: { get: jest.Mock; set: jest.Mock };
-  let prismaService: {
-    dictionaryWord: { findUnique: jest.Mock };
-    favoriteWord: {
-      create: jest.Mock;
-      deleteMany: jest.Mock;
-      count: jest.Mock;
-    };
+  let dictionaryWordRepository: { findIdByValue: jest.Mock };
+  let favoriteWordRepository: {
+    create: jest.Mock;
+    deleteByUserAndWord: jest.Mock;
   };
 
   const authenticatedUser: AuthenticatedUser = {
@@ -31,15 +30,13 @@ describe('EntriesService favorites', () => {
       set: jest.fn(),
     };
 
-    prismaService = {
-      dictionaryWord: {
-        findUnique: jest.fn(),
-      },
-      favoriteWord: {
-        create: jest.fn(),
-        deleteMany: jest.fn(),
-        count: jest.fn(),
-      },
+    dictionaryWordRepository = {
+      findIdByValue: jest.fn(),
+    };
+
+    favoriteWordRepository = {
+      create: jest.fn(),
+      deleteByUserAndWord: jest.fn(),
     };
 
     const cacheServiceInstance = Object.create(
@@ -47,24 +44,33 @@ describe('EntriesService favorites', () => {
     ) as CacheService;
     Object.assign(cacheServiceInstance, cacheService);
 
-    const prismaServiceInstance = Object.create(
-      PrismaService.prototype,
-    ) as PrismaService;
-    Object.assign(prismaServiceInstance, prismaService);
+    const dictionaryWordRepositoryInstance = Object.create(
+      DictionaryWordRepository.prototype,
+    ) as DictionaryWordRepository;
+    Object.assign(dictionaryWordRepositoryInstance, dictionaryWordRepository);
 
     const freeDictionaryClientInstance = Object.create(
       FreeDictionaryClient.prototype,
     ) as FreeDictionaryClient;
+    const favoriteWordRepositoryInstance = Object.create(
+      FavoriteWordRepository.prototype,
+    ) as FavoriteWordRepository;
+    const wordHistoryRepositoryInstance = Object.create(
+      WordHistoryRepository.prototype,
+    ) as WordHistoryRepository;
+    Object.assign(favoriteWordRepositoryInstance, favoriteWordRepository);
 
     entriesService = new EntriesService(
       cacheServiceInstance,
-      prismaServiceInstance,
+      dictionaryWordRepositoryInstance,
+      favoriteWordRepositoryInstance,
+      wordHistoryRepositoryInstance,
       freeDictionaryClientInstance,
     );
   });
 
   it('should favorite a word', async () => {
-    prismaService.dictionaryWord.findUnique.mockResolvedValue({
+    dictionaryWordRepository.findIdByValue.mockResolvedValue({
       id: 'word-id',
     });
 
@@ -72,19 +78,17 @@ describe('EntriesService favorites', () => {
       entriesService.favoriteWord(authenticatedUser, 'Fire'),
     ).resolves.toBeUndefined();
 
-    expect(prismaService.favoriteWord.create).toHaveBeenCalledWith({
-      data: {
-        userId: 'user-id',
-        wordId: 'word-id',
-      },
+    expect(favoriteWordRepository.create).toHaveBeenCalledWith({
+      userId: 'user-id',
+      wordId: 'word-id',
     });
   });
 
   it('should favorite again idempotently on unique constraint violation', async () => {
-    prismaService.dictionaryWord.findUnique.mockResolvedValue({
+    dictionaryWordRepository.findIdByValue.mockResolvedValue({
       id: 'word-id',
     });
-    prismaService.favoriteWord.create.mockRejectedValue({ code: 'P2002' });
+    favoriteWordRepository.create.mockRejectedValue({ code: 'P2002' });
 
     await expect(
       entriesService.favoriteWord(authenticatedUser, 'fire'),
@@ -92,28 +96,26 @@ describe('EntriesService favorites', () => {
   });
 
   it('should unfavorite a word', async () => {
-    prismaService.dictionaryWord.findUnique.mockResolvedValue({
+    dictionaryWordRepository.findIdByValue.mockResolvedValue({
       id: 'word-id',
     });
-    prismaService.favoriteWord.deleteMany.mockResolvedValue({ count: 1 });
+    favoriteWordRepository.deleteByUserAndWord.mockResolvedValue({ count: 1 });
 
     await expect(
       entriesService.unfavoriteWord(authenticatedUser, 'fire'),
     ).resolves.toBeUndefined();
 
-    expect(prismaService.favoriteWord.deleteMany).toHaveBeenCalledWith({
-      where: {
-        userId: 'user-id',
-        wordId: 'word-id',
-      },
+    expect(favoriteWordRepository.deleteByUserAndWord).toHaveBeenCalledWith({
+      userId: 'user-id',
+      wordId: 'word-id',
     });
   });
 
   it('should unfavorite idempotently when the word is not favorited', async () => {
-    prismaService.dictionaryWord.findUnique.mockResolvedValue({
+    dictionaryWordRepository.findIdByValue.mockResolvedValue({
       id: 'word-id',
     });
-    prismaService.favoriteWord.deleteMany.mockResolvedValue({ count: 0 });
+    favoriteWordRepository.deleteByUserAndWord.mockResolvedValue({ count: 0 });
 
     await expect(
       entriesService.unfavoriteWord(authenticatedUser, 'fire'),
@@ -121,7 +123,7 @@ describe('EntriesService favorites', () => {
   });
 
   it('should reject nonexistent local words', async () => {
-    prismaService.dictionaryWord.findUnique.mockResolvedValue(null);
+    dictionaryWordRepository.findIdByValue.mockResolvedValue(null);
 
     await expect(
       entriesService.favoriteWord(authenticatedUser, 'missing'),
@@ -131,7 +133,7 @@ describe('EntriesService favorites', () => {
   });
 
   it('should preserve isolation between users through the persisted userId', async () => {
-    prismaService.dictionaryWord.findUnique.mockResolvedValue({
+    dictionaryWordRepository.findIdByValue.mockResolvedValue({
       id: 'word-id',
     });
 
@@ -144,25 +146,21 @@ describe('EntriesService favorites', () => {
       'fire',
     );
 
-    expect(prismaService.favoriteWord.create).toHaveBeenNthCalledWith(1, {
-      data: {
-        userId: 'user-a',
-        wordId: 'word-id',
-      },
+    expect(favoriteWordRepository.create).toHaveBeenNthCalledWith(1, {
+      userId: 'user-a',
+      wordId: 'word-id',
     });
-    expect(prismaService.favoriteWord.create).toHaveBeenNthCalledWith(2, {
-      data: {
-        userId: 'user-b',
-        wordId: 'word-id',
-      },
+    expect(favoriteWordRepository.create).toHaveBeenNthCalledWith(2, {
+      userId: 'user-b',
+      wordId: 'word-id',
     });
   });
 
   it('should tolerate concurrent unique constraint violations without duplicating favorites', async () => {
-    prismaService.dictionaryWord.findUnique.mockResolvedValue({
+    dictionaryWordRepository.findIdByValue.mockResolvedValue({
       id: 'word-id',
     });
-    prismaService.favoriteWord.create.mockRejectedValue({ code: 'P2002' });
+    favoriteWordRepository.create.mockRejectedValue({ code: 'P2002' });
 
     await expect(
       entriesService.favoriteWord(authenticatedUser, 'fire'),

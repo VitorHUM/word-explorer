@@ -65,13 +65,13 @@ export class UserController {
   getProfile(
     @CurrentUser() authenticatedUser: AuthenticatedUser,
   ): UserProfileDto {
-    return {
+    return UserProfileDto.from({
       id: authenticatedUser.id,
       name: authenticatedUser.name,
       email: authenticatedUser.email,
       createdAt: authenticatedUser.createdAt.toISOString(),
       updatedAt: authenticatedUser.updatedAt.toISOString(),
-    };
+    });
   }
 
   @Get('me/history')

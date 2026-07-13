@@ -3,7 +3,9 @@ import { Prisma } from '@prisma/client';
 import type { AuthenticatedUser } from '../auth/types/auth.type';
 import { buildPaginatedResponse } from '../common/dtos/pagination.dto';
 import { CacheService } from '../infrastructure/cache/cache.service';
-import { PrismaService } from '../infrastructure/database/prisma/prisma.service';
+import { DictionaryWordRepository } from '../infrastructure/database/repositories/dictionary-word.repository';
+import { FavoriteWordRepository } from '../infrastructure/database/repositories/favorite-word.repository';
+import { WordHistoryRepository } from '../infrastructure/database/repositories/word-history.repository';
 import { FreeDictionaryClient } from '../infrastructure/dictionary/free-dictionary.client';
 import type { FreeDictionaryResult } from '../infrastructure/dictionary/free-dictionary.type';
 import type { CacheableResponseBody } from '../infrastructure/http/cacheable-response.interceptor';
@@ -17,7 +19,9 @@ import { EntryDetailsDto } from './dtos/entry-details.dto';
 export class EntriesService {
   constructor(
     private readonly cacheService: CacheService,
-    private readonly prismaService: PrismaService,
+    private readonly dictionaryWordRepository: DictionaryWordRepository,
+    private readonly favoriteWordRepository: FavoriteWordRepository,
+    private readonly wordHistoryRepository: WordHistoryRepository,
     private readonly freeDictionaryClient: FreeDictionaryClient,
   ) {}
 
@@ -37,53 +41,30 @@ export class EntriesService {
 
     if (cachedResponse.data) {
       return {
-        body: cachedResponse.data,
+        body: ListEntriesResponseDto.from(cachedResponse.data),
         cacheStatus: cachedResponse.status,
       };
     }
 
-    const where = normalizedSearch
-      ? {
-          value: {
-            startsWith: normalizedSearch,
-            mode: 'insensitive' as const,
-          },
-        }
-      : {};
-    const skip = (page - 1) * limit;
-
-    const [totalDocs, words] = await this.prismaService.$transaction(
-      async (transactionClient) => {
-        const totalDocsResult = await transactionClient.dictionaryWord.count({
-          where,
-        });
-        const wordsResult = await transactionClient.dictionaryWord.findMany({
-          where,
-          select: {
-            value: true,
-          },
-          orderBy: {
-            value: 'asc',
-          },
-          skip,
-          take: limit,
-        });
-
-        return [totalDocsResult, wordsResult] as const;
-      },
-    );
+    const { totalDocs, words } =
+      await this.dictionaryWordRepository.findPaginated({
+        search: normalizedSearch,
+        page,
+        limit,
+      });
 
     const response = buildPaginatedResponse({
-      results: words.map((word) => word.value),
+      results: words,
       totalDocs,
       page,
       limit,
     });
+    const serializedResponse = ListEntriesResponseDto.from(response);
 
-    await this.cacheService.set(cacheKey, response);
+    await this.cacheService.set(cacheKey, serializedResponse);
 
     return {
-      body: response,
+      body: serializedResponse,
       cacheStatus: 'MISS',
     };
   }
@@ -103,14 +84,8 @@ export class EntriesService {
     word: string,
   ): Promise<CacheableResponseBody<EntryDetailsDto>> {
     const normalizedWord = this.normalizeWord(word);
-    const localWord = await this.prismaService.dictionaryWord.findUnique({
-      where: {
-        value: normalizedWord,
-      },
-      select: {
-        id: true,
-      },
-    });
+    const localWord =
+      await this.dictionaryWordRepository.findIdByValue(normalizedWord);
 
     if (!localWord) {
       throw new NotFoundException('Palavra não encontrada na base local.');
@@ -119,11 +94,9 @@ export class EntriesService {
     const entryResult =
       await this.freeDictionaryClient.getEnglishEntryWithCache(normalizedWord);
 
-    await this.prismaService.wordHistory.create({
-      data: {
-        userId: authenticatedUser.id,
-        wordId: localWord.id,
-      },
+    await this.wordHistoryRepository.create({
+      userId: authenticatedUser.id,
+      wordId: localWord.id,
     });
 
     return {
@@ -139,11 +112,9 @@ export class EntriesService {
     const localWord = await this.findLocalWordOrThrow(word);
 
     try {
-      await this.prismaService.favoriteWord.create({
-        data: {
-          userId: authenticatedUser.id,
-          wordId: localWord.id,
-        },
+      await this.favoriteWordRepository.create({
+        userId: authenticatedUser.id,
+        wordId: localWord.id,
       });
     } catch (error: unknown) {
       if (this.isUniqueConstraintError(error)) {
@@ -160,21 +131,19 @@ export class EntriesService {
   ): Promise<void> {
     const localWord = await this.findLocalWordOrThrow(word);
 
-    await this.prismaService.favoriteWord.deleteMany({
-      where: {
-        userId: authenticatedUser.id,
-        wordId: localWord.id,
-      },
+    await this.favoriteWordRepository.deleteByUserAndWord({
+      userId: authenticatedUser.id,
+      wordId: localWord.id,
     });
   }
 
   private mapEntryDetails(entryDetails: FreeDictionaryResult): EntryDetailsDto {
-    return {
+    return EntryDetailsDto.from({
       word: entryDetails.word,
       phonetics: entryDetails.phonetics,
       meanings: entryDetails.meanings,
       sourceUrls: entryDetails.sourceUrls,
-    };
+    });
   }
 
   private normalizeWord(word: string): string {
@@ -183,14 +152,8 @@ export class EntriesService {
 
   private async findLocalWordOrThrow(word: string): Promise<{ id: string }> {
     const normalizedWord = this.normalizeWord(word);
-    const localWord = await this.prismaService.dictionaryWord.findUnique({
-      where: {
-        value: normalizedWord,
-      },
-      select: {
-        id: true,
-      },
-    });
+    const localWord =
+      await this.dictionaryWordRepository.findIdByValue(normalizedWord);
 
     if (!localWord) {
       throw new NotFoundException('Palavra não encontrada na base local.');

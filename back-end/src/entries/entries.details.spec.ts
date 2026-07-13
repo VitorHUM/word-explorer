@@ -1,7 +1,9 @@
 import { NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import type { AuthenticatedUser } from '../auth/types/auth.type';
 import { CacheService } from '../infrastructure/cache/cache.service';
-import { PrismaService } from '../infrastructure/database/prisma/prisma.service';
+import { DictionaryWordRepository } from '../infrastructure/database/repositories/dictionary-word.repository';
+import { FavoriteWordRepository } from '../infrastructure/database/repositories/favorite-word.repository';
+import { WordHistoryRepository } from '../infrastructure/database/repositories/word-history.repository';
 import { FreeDictionaryClient } from '../infrastructure/dictionary/free-dictionary.client';
 import { EntriesService } from './entries.service';
 
@@ -11,13 +13,11 @@ describe('EntriesService details', () => {
     get: jest.Mock;
     set: jest.Mock;
   };
-  let prismaService: {
-    dictionaryWord: {
-      findUnique: jest.Mock;
-    };
-    wordHistory: {
-      create: jest.Mock;
-    };
+  let dictionaryWordRepository: {
+    findIdByValue: jest.Mock;
+  };
+  let wordHistoryRepository: {
+    create: jest.Mock;
   };
   let freeDictionaryClient: {
     getEnglishEntryWithCache: jest.Mock;
@@ -32,13 +32,12 @@ describe('EntriesService details', () => {
   };
 
   beforeEach(() => {
-    prismaService = {
-      dictionaryWord: {
-        findUnique: jest.fn(),
-      },
-      wordHistory: {
-        create: jest.fn(),
-      },
+    dictionaryWordRepository = {
+      findIdByValue: jest.fn(),
+    };
+
+    wordHistoryRepository = {
+      create: jest.fn(),
     };
 
     freeDictionaryClient = {
@@ -50,11 +49,11 @@ describe('EntriesService details', () => {
       set: jest.fn(),
     };
 
-    const prismaServiceInstance = Object.create(
-      PrismaService.prototype,
-    ) as PrismaService;
+    const dictionaryWordRepositoryInstance = Object.create(
+      DictionaryWordRepository.prototype,
+    ) as DictionaryWordRepository;
 
-    Object.assign(prismaServiceInstance, prismaService);
+    Object.assign(dictionaryWordRepositoryInstance, dictionaryWordRepository);
 
     const freeDictionaryClientInstance = Object.create(
       FreeDictionaryClient.prototype,
@@ -63,19 +62,28 @@ describe('EntriesService details', () => {
     const cacheServiceInstance = Object.create(
       CacheService.prototype,
     ) as CacheService;
+    const favoriteWordRepositoryInstance = Object.create(
+      FavoriteWordRepository.prototype,
+    ) as FavoriteWordRepository;
+    const wordHistoryRepositoryInstance = Object.create(
+      WordHistoryRepository.prototype,
+    ) as WordHistoryRepository;
 
     Object.assign(freeDictionaryClientInstance, freeDictionaryClient);
     Object.assign(cacheServiceInstance, cacheService);
+    Object.assign(wordHistoryRepositoryInstance, wordHistoryRepository);
 
     entriesService = new EntriesService(
       cacheServiceInstance,
-      prismaServiceInstance,
+      dictionaryWordRepositoryInstance,
+      favoriteWordRepositoryInstance,
+      wordHistoryRepositoryInstance,
       freeDictionaryClientInstance,
     );
   });
 
   it('should return a valid word with external MISS resolution', async () => {
-    prismaService.dictionaryWord.findUnique.mockResolvedValue({
+    dictionaryWordRepository.findIdByValue.mockResolvedValue({
       id: 'word-id',
       value: 'fire',
     });
@@ -103,7 +111,7 @@ describe('EntriesService details', () => {
   });
 
   it('should return a valid word with cache HIT resolution', async () => {
-    prismaService.dictionaryWord.findUnique.mockResolvedValue({
+    dictionaryWordRepository.findIdByValue.mockResolvedValue({
       id: 'word-id',
       value: 'fire',
     });
@@ -131,7 +139,7 @@ describe('EntriesService details', () => {
   });
 
   it('should register history on HIT', async () => {
-    prismaService.dictionaryWord.findUnique.mockResolvedValue({
+    dictionaryWordRepository.findIdByValue.mockResolvedValue({
       id: 'word-id',
       value: 'fire',
     });
@@ -147,16 +155,14 @@ describe('EntriesService details', () => {
 
     await entriesService.getEnglishEntryDetails(authenticatedUser, 'fire');
 
-    expect(prismaService.wordHistory.create).toHaveBeenCalledWith({
-      data: {
-        userId: 'user-id',
-        wordId: 'word-id',
-      },
+    expect(wordHistoryRepository.create).toHaveBeenCalledWith({
+      userId: 'user-id',
+      wordId: 'word-id',
     });
   });
 
   it('should register history on MISS', async () => {
-    prismaService.dictionaryWord.findUnique.mockResolvedValue({
+    dictionaryWordRepository.findIdByValue.mockResolvedValue({
       id: 'word-id',
       value: 'fire',
     });
@@ -172,11 +178,11 @@ describe('EntriesService details', () => {
 
     await entriesService.getEnglishEntryDetails(authenticatedUser, 'fire');
 
-    expect(prismaService.wordHistory.create).toHaveBeenCalledTimes(1);
+    expect(wordHistoryRepository.create).toHaveBeenCalledTimes(1);
   });
 
   it('should reject a word that does not exist locally', async () => {
-    prismaService.dictionaryWord.findUnique.mockResolvedValue(null);
+    dictionaryWordRepository.findIdByValue.mockResolvedValue(null);
 
     await expect(
       entriesService.getEnglishEntryDetails(authenticatedUser, 'missing'),
@@ -186,11 +192,11 @@ describe('EntriesService details', () => {
     expect(
       freeDictionaryClient.getEnglishEntryWithCache,
     ).not.toHaveBeenCalled();
-    expect(prismaService.wordHistory.create).not.toHaveBeenCalled();
+    expect(wordHistoryRepository.create).not.toHaveBeenCalled();
   });
 
   it('should propagate external not found without creating history', async () => {
-    prismaService.dictionaryWord.findUnique.mockResolvedValue({
+    dictionaryWordRepository.findIdByValue.mockResolvedValue({
       id: 'word-id',
       value: 'fire',
     });
@@ -203,11 +209,11 @@ describe('EntriesService details', () => {
     ).rejects.toThrow(
       new NotFoundException('Palavra não encontrada no dicionário.'),
     );
-    expect(prismaService.wordHistory.create).not.toHaveBeenCalled();
+    expect(wordHistoryRepository.create).not.toHaveBeenCalled();
   });
 
   it('should not create history on external failure', async () => {
-    prismaService.dictionaryWord.findUnique.mockResolvedValue({
+    dictionaryWordRepository.findIdByValue.mockResolvedValue({
       id: 'word-id',
       value: 'fire',
     });
@@ -224,6 +230,6 @@ describe('EntriesService details', () => {
         'O serviço de dicionário está indisponível no momento.',
       ),
     );
-    expect(prismaService.wordHistory.create).not.toHaveBeenCalled();
+    expect(wordHistoryRepository.create).not.toHaveBeenCalled();
   });
 });

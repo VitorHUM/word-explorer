@@ -1,6 +1,6 @@
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { PrismaService } from '../../infrastructure/database/prisma/prisma.service';
+import { UserRepository } from '../../infrastructure/database/repositories/user.repository';
 import { AuthTokenService } from '../auth-token.service';
 import type { AuthenticatedRequest } from '../types/auth.type';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -9,7 +9,7 @@ describe('JwtAuthGuard', () => {
   let guard: JwtAuthGuard;
   let authTokenService: AuthTokenService;
   let jwtService: { verifyAsync: jest.Mock; sign: jest.Mock };
-  let prismaService: { user: { findUnique: jest.Mock } };
+  let userRepository: { findAuthenticatedById: jest.Mock };
 
   beforeEach(() => {
     jwtService = {
@@ -25,19 +25,17 @@ describe('JwtAuthGuard', () => {
 
     authTokenService = new AuthTokenService(jwtServiceInstance);
 
-    prismaService = {
-      user: {
-        findUnique: jest.fn(),
-      },
+    userRepository = {
+      findAuthenticatedById: jest.fn(),
     };
 
-    const prismaServiceInstance = Object.create(
-      PrismaService.prototype,
-    ) as PrismaService;
+    const userRepositoryInstance = Object.create(
+      UserRepository.prototype,
+    ) as UserRepository;
 
-    Object.assign(prismaServiceInstance, prismaService);
+    Object.assign(userRepositoryInstance, userRepository);
 
-    guard = new JwtAuthGuard(authTokenService, prismaServiceInstance);
+    guard = new JwtAuthGuard(authTokenService, userRepositoryInstance);
   });
 
   it('should allow a request with a valid bearer token and attach the user', async () => {
@@ -48,7 +46,7 @@ describe('JwtAuthGuard', () => {
     };
 
     jwtService.verifyAsync.mockResolvedValue({ sub: 'user-id' });
-    prismaService.user.findUnique.mockResolvedValue({
+    userRepository.findAuthenticatedById.mockResolvedValue({
       id: 'user-id',
       name: 'User 1',
       email: 'example@email.com',
@@ -138,7 +136,7 @@ describe('JwtAuthGuard', () => {
     };
 
     jwtService.verifyAsync.mockResolvedValue({ sub: 'user-id' });
-    prismaService.user.findUnique.mockResolvedValue(null);
+    userRepository.findAuthenticatedById.mockResolvedValue(null);
 
     await expect(
       guard.canActivate(createExecutionContext(request)),

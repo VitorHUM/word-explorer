@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
+import { Exclude, Expose, Transform } from 'class-transformer';
 import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { serializeDto } from '../../common/utils/serialization.util';
 
 function normalizeWhitespace(value: string): string {
   return value.trim().replace(/\s+/g, ' ');
@@ -56,20 +57,32 @@ export class SignInDto {
   password!: string;
 }
 
+@Exclude()
 export class AuthResponseDto {
   @ApiProperty({
     example: '4ec6ad59-ec9e-4064-a174-c976dff6cd1f',
     format: 'uuid',
   })
+  @Expose()
   id!: string;
 
   @ApiProperty({
     example: 'Usuário 1',
   })
+  @Expose()
   name!: string;
 
   @ApiProperty({
     example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.example',
   })
+  @Expose()
   token!: string;
+
+  static from(data: {
+    id: string;
+    name: string;
+    token: string;
+  }): AuthResponseDto {
+    return serializeDto(AuthResponseDto, data);
+  }
 }

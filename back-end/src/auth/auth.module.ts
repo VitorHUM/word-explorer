@@ -3,7 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import type { StringValue } from 'ms';
 import { AppConfigService } from '../infrastructure/config/app-config.service';
 import { EnvironmentConfigModule } from '../infrastructure/config/environment-config.module';
-import { PrismaModule } from '../infrastructure/database/prisma/prisma.module';
+import { RepositoriesModule } from '../infrastructure/database/repositories/repositories.module';
 import { AuthTokenService } from './auth-token.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -12,7 +12,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 @Module({
   imports: [
     EnvironmentConfigModule,
-    PrismaModule,
+    RepositoriesModule,
     JwtModule.registerAsync({
       imports: [EnvironmentConfigModule],
       inject: [AppConfigService],

@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import type { AuthenticatedUser } from '../auth/types/auth.type';
 import { buildPaginatedResponse } from '../common/dtos/pagination.dto';
-import { PrismaService } from '../infrastructure/database/prisma/prisma.service';
+import { FavoriteWordRepository } from '../infrastructure/database/repositories/favorite-word.repository';
+import { WordHistoryRepository } from '../infrastructure/database/repositories/word-history.repository';
 import {
   UserFavoritesQueryDto,
   UserFavoritesResponseDto,
@@ -13,7 +14,10 @@ import {
 
 @Injectable()
 export class UserService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly favoriteWordRepository: FavoriteWordRepository,
+    private readonly wordHistoryRepository: WordHistoryRepository,
+  ) {}
 
   async getFavorites(
     authenticatedUser: AuthenticatedUser,
@@ -21,47 +25,24 @@ export class UserService {
   ): Promise<UserFavoritesResponseDto> {
     const page = query.page;
     const limit = query.limit;
-    const skip = (page - 1) * limit;
+    const { totalDocs, items } =
+      await this.favoriteWordRepository.findPaginatedByUser({
+        userId: authenticatedUser.id,
+        page,
+        limit,
+      });
 
-    const [totalDocs, favoriteItems] = await this.prismaService.$transaction(
-      async (transactionClient) => {
-        const totalDocsResult = await transactionClient.favoriteWord.count({
-          where: {
-            userId: authenticatedUser.id,
-          },
-        });
-        const favoritesResult = await transactionClient.favoriteWord.findMany({
-          where: {
-            userId: authenticatedUser.id,
-          },
-          select: {
-            createdAt: true,
-            word: {
-              select: {
-                value: true,
-              },
-            },
-          },
-          orderBy: {
-            createdAt: 'desc',
-          },
-          skip,
-          take: limit,
-        });
-
-        return [totalDocsResult, favoritesResult] as const;
-      },
+    return UserFavoritesResponseDto.from(
+      buildPaginatedResponse({
+        results: items.map((favoriteItem) => ({
+          word: favoriteItem.word.value,
+          added: favoriteItem.createdAt.toISOString(),
+        })),
+        totalDocs,
+        page,
+        limit,
+      }),
     );
-
-    return buildPaginatedResponse({
-      results: favoriteItems.map((favoriteItem) => ({
-        word: favoriteItem.word.value,
-        added: favoriteItem.createdAt.toISOString(),
-      })),
-      totalDocs,
-      page,
-      limit,
-    });
   }
 
   async getHistory(
@@ -70,46 +51,23 @@ export class UserService {
   ): Promise<UserHistoryResponseDto> {
     const page = query.page;
     const limit = query.limit;
-    const skip = (page - 1) * limit;
+    const { totalDocs, items } =
+      await this.wordHistoryRepository.findPaginatedByUser({
+        userId: authenticatedUser.id,
+        page,
+        limit,
+      });
 
-    const [totalDocs, historyItems] = await this.prismaService.$transaction(
-      async (transactionClient) => {
-        const totalDocsResult = await transactionClient.wordHistory.count({
-          where: {
-            userId: authenticatedUser.id,
-          },
-        });
-        const historyResult = await transactionClient.wordHistory.findMany({
-          where: {
-            userId: authenticatedUser.id,
-          },
-          select: {
-            viewedAt: true,
-            word: {
-              select: {
-                value: true,
-              },
-            },
-          },
-          orderBy: {
-            viewedAt: 'desc',
-          },
-          skip,
-          take: limit,
-        });
-
-        return [totalDocsResult, historyResult] as const;
-      },
+    return UserHistoryResponseDto.from(
+      buildPaginatedResponse({
+        results: items.map((historyItem) => ({
+          word: historyItem.word.value,
+          added: historyItem.viewedAt.toISOString(),
+        })),
+        totalDocs,
+        page,
+        limit,
+      }),
     );
-
-    return buildPaginatedResponse({
-      results: historyItems.map((historyItem) => ({
-        word: historyItem.word.value,
-        added: historyItem.viewedAt.toISOString(),
-      })),
-      totalDocs,
-      page,
-      limit,
-    });
   }
 }

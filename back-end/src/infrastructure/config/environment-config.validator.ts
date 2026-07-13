@@ -17,9 +17,17 @@ const environmentValidationSchema = Joi.object({
   DATABASE_URL: Joi.string()
     .uri({ scheme: ['postgres', 'postgresql'] })
     .required(),
+  CORS_ALLOWED_ORIGINS: Joi.string()
+    .trim()
+    .min(1)
+    .default('http://localhost:3000'),
   REDIS_HOST: hostnameSchema.required(),
   REDIS_PORT: Joi.number().port().required(),
   REDIS_TTL_SECONDS: Joi.number().integer().positive().required(),
+  THROTTLE_TTL_MS: Joi.number().integer().positive().default(60000),
+  THROTTLE_LIMIT: Joi.number().integer().positive().default(60),
+  AUTH_THROTTLE_TTL_MS: Joi.number().integer().positive().default(60000),
+  AUTH_THROTTLE_LIMIT: Joi.number().integer().positive().default(5),
   JWT_SECRET: Joi.string().trim().min(1).required(),
   JWT_EXPIRES_IN: Joi.string().trim().min(1).required(),
   DICTIONARY_API_URL: Joi.string()

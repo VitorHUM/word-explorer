@@ -23,6 +23,14 @@ export class AppConfigService {
     return this.configService.getOrThrow('DATABASE_URL', { infer: true });
   }
 
+  get corsAllowedOrigins(): string[] {
+    return this.configService
+      .getOrThrow('CORS_ALLOWED_ORIGINS', { infer: true })
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean);
+  }
+
   get redisHost(): string {
     return this.configService.getOrThrow('REDIS_HOST', { infer: true });
   }
@@ -33,6 +41,26 @@ export class AppConfigService {
 
   get redisTtlSeconds(): number {
     return this.configService.getOrThrow('REDIS_TTL_SECONDS', { infer: true });
+  }
+
+  get throttleTtlMs(): number {
+    return this.configService.getOrThrow('THROTTLE_TTL_MS', { infer: true });
+  }
+
+  get throttleLimit(): number {
+    return this.configService.getOrThrow('THROTTLE_LIMIT', { infer: true });
+  }
+
+  get authThrottleTtlMs(): number {
+    return this.configService.getOrThrow('AUTH_THROTTLE_TTL_MS', {
+      infer: true,
+    });
+  }
+
+  get authThrottleLimit(): number {
+    return this.configService.getOrThrow('AUTH_THROTTLE_LIMIT', {
+      infer: true,
+    });
   }
 
   get jwtSecret(): string {

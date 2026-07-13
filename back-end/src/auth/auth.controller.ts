@@ -7,6 +7,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { AuthResponseDto, SignInDto, SignUpDto } from './dtos/auth.dto';
 
@@ -16,6 +17,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('signup')
+  @Throttle({ auth: {} })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Cadastrar um novo usuário',
@@ -49,6 +51,7 @@ export class AuthController {
   }
 
   @Post('signin')
+  @Throttle({ auth: {} })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Autenticar um usuário existente',

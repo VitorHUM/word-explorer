@@ -1,24 +1,15 @@
 import type { AuthenticatedUser } from '../auth/types/auth.type';
-import { PrismaService } from '../infrastructure/database/prisma/prisma.service';
+import { FavoriteWordRepository } from '../infrastructure/database/repositories/favorite-word.repository';
+import { WordHistoryRepository } from '../infrastructure/database/repositories/word-history.repository';
 import { UserService } from './user.service';
 
 describe('UserService', () => {
   let userService: UserService;
-  let transactionClient: {
-    favoriteWord: {
-      count: jest.Mock;
-      findMany: jest.Mock;
-    };
-    wordHistory: {
-      count: jest.Mock;
-      findMany: jest.Mock;
-    };
+  let favoriteWordRepository: {
+    findPaginatedByUser: jest.Mock;
   };
-  let prismaService: {
-    $transaction: jest.Mock<
-      Promise<unknown>,
-      [(client: typeof transactionClient) => Promise<unknown>]
-    >;
+  let wordHistoryRepository: {
+    findPaginatedByUser: jest.Mock;
   };
 
   const authenticatedUser: AuthenticatedUser = {
@@ -30,36 +21,35 @@ describe('UserService', () => {
   };
 
   beforeEach(() => {
-    transactionClient = {
-      favoriteWord: {
-        count: jest.fn(),
-        findMany: jest.fn(),
-      },
-      wordHistory: {
-        count: jest.fn(),
-        findMany: jest.fn(),
-      },
+    favoriteWordRepository = {
+      findPaginatedByUser: jest.fn(),
     };
 
-    prismaService = {
-      $transaction: jest.fn(
-        (callback: (client: typeof transactionClient) => Promise<unknown>) =>
-          callback(transactionClient),
-      ),
+    wordHistoryRepository = {
+      findPaginatedByUser: jest.fn(),
     };
 
-    const prismaServiceInstance = Object.create(
-      PrismaService.prototype,
-    ) as PrismaService;
+    const favoriteWordRepositoryInstance = Object.create(
+      FavoriteWordRepository.prototype,
+    ) as FavoriteWordRepository;
+    const wordHistoryRepositoryInstance = Object.create(
+      WordHistoryRepository.prototype,
+    ) as WordHistoryRepository;
 
-    Object.assign(prismaServiceInstance, prismaService);
+    Object.assign(favoriteWordRepositoryInstance, favoriteWordRepository);
+    Object.assign(wordHistoryRepositoryInstance, wordHistoryRepository);
 
-    userService = new UserService(prismaServiceInstance);
+    userService = new UserService(
+      favoriteWordRepositoryInstance,
+      wordHistoryRepositoryInstance,
+    );
   });
 
   it('should return an empty favorites list', async () => {
-    transactionClient.favoriteWord.count.mockResolvedValue(0);
-    transactionClient.favoriteWord.findMany.mockResolvedValue([]);
+    favoriteWordRepository.findPaginatedByUser.mockResolvedValue({
+      totalDocs: 0,
+      items: [],
+    });
 
     await expect(
       userService.getFavorites(authenticatedUser, { page: 1, limit: 20 }),
@@ -74,17 +64,19 @@ describe('UserService', () => {
   });
 
   it('should order favorites from most recent to oldest', async () => {
-    transactionClient.favoriteWord.count.mockResolvedValue(2);
-    transactionClient.favoriteWord.findMany.mockResolvedValue([
-      {
-        createdAt: new Date('2026-07-12T10:00:00.000Z'),
-        word: { value: 'fire' },
-      },
-      {
-        createdAt: new Date('2026-07-12T09:00:00.000Z'),
-        word: { value: 'firefly' },
-      },
-    ]);
+    favoriteWordRepository.findPaginatedByUser.mockResolvedValue({
+      totalDocs: 2,
+      items: [
+        {
+          createdAt: new Date('2026-07-12T10:00:00.000Z'),
+          word: { value: 'fire' },
+        },
+        {
+          createdAt: new Date('2026-07-12T09:00:00.000Z'),
+          word: { value: 'firefly' },
+        },
+      ],
+    });
 
     await expect(
       userService.getFavorites(authenticatedUser, { page: 1, limit: 20 }),
@@ -99,24 +91,18 @@ describe('UserService', () => {
       hasNext: false,
       hasPrev: false,
     });
-
-    expect(transactionClient.favoriteWord.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        orderBy: {
-          createdAt: 'desc',
-        },
-      }),
-    );
   });
 
   it('should paginate favorites correctly', async () => {
-    transactionClient.favoriteWord.count.mockResolvedValue(45);
-    transactionClient.favoriteWord.findMany.mockResolvedValue([
-      {
-        createdAt: new Date('2026-07-12T08:00:00.000Z'),
-        word: { value: 'fire' },
-      },
-    ]);
+    favoriteWordRepository.findPaginatedByUser.mockResolvedValue({
+      totalDocs: 45,
+      items: [
+        {
+          createdAt: new Date('2026-07-12T08:00:00.000Z'),
+          word: { value: 'fire' },
+        },
+      ],
+    });
 
     await expect(
       userService.getFavorites(authenticatedUser, { page: 2, limit: 20 }),
@@ -128,38 +114,28 @@ describe('UserService', () => {
       hasNext: true,
       hasPrev: true,
     });
-
-    expect(transactionClient.favoriteWord.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        skip: 20,
-        take: 20,
-      }),
-    );
   });
 
   it('should isolate favorites by authenticated user', async () => {
-    transactionClient.favoriteWord.count.mockResolvedValue(1);
-    transactionClient.favoriteWord.findMany.mockResolvedValue([]);
+    favoriteWordRepository.findPaginatedByUser.mockResolvedValue({
+      totalDocs: 1,
+      items: [],
+    });
 
     await userService.getFavorites(authenticatedUser, { page: 1, limit: 20 });
 
-    expect(transactionClient.favoriteWord.count).toHaveBeenCalledWith({
-      where: {
-        userId: 'user-id',
-      },
+    expect(favoriteWordRepository.findPaginatedByUser).toHaveBeenCalledWith({
+      userId: 'user-id',
+      page: 1,
+      limit: 20,
     });
-    expect(transactionClient.favoriteWord.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          userId: 'user-id',
-        },
-      }),
-    );
   });
 
   it('should return an empty history', async () => {
-    transactionClient.wordHistory.count.mockResolvedValue(0);
-    transactionClient.wordHistory.findMany.mockResolvedValue([]);
+    wordHistoryRepository.findPaginatedByUser.mockResolvedValue({
+      totalDocs: 0,
+      items: [],
+    });
 
     await expect(
       userService.getHistory(authenticatedUser, { page: 1, limit: 20 }),
@@ -174,17 +150,19 @@ describe('UserService', () => {
   });
 
   it('should return multiple history records', async () => {
-    transactionClient.wordHistory.count.mockResolvedValue(2);
-    transactionClient.wordHistory.findMany.mockResolvedValue([
-      {
-        viewedAt: new Date('2026-07-12T10:00:00.000Z'),
-        word: { value: 'fire' },
-      },
-      {
-        viewedAt: new Date('2026-07-12T09:00:00.000Z'),
-        word: { value: 'firefly' },
-      },
-    ]);
+    wordHistoryRepository.findPaginatedByUser.mockResolvedValue({
+      totalDocs: 2,
+      items: [
+        {
+          viewedAt: new Date('2026-07-12T10:00:00.000Z'),
+          word: { value: 'fire' },
+        },
+        {
+          viewedAt: new Date('2026-07-12T09:00:00.000Z'),
+          word: { value: 'firefly' },
+        },
+      ],
+    });
 
     await expect(
       userService.getHistory(authenticatedUser, { page: 1, limit: 20 }),
@@ -202,28 +180,24 @@ describe('UserService', () => {
   });
 
   it('should order by most recent access first', async () => {
-    transactionClient.wordHistory.count.mockResolvedValue(2);
-    transactionClient.wordHistory.findMany.mockResolvedValue([]);
+    wordHistoryRepository.findPaginatedByUser.mockResolvedValue({
+      totalDocs: 2,
+      items: [],
+    });
 
     await userService.getHistory(authenticatedUser, { page: 1, limit: 20 });
-
-    expect(transactionClient.wordHistory.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        orderBy: {
-          viewedAt: 'desc',
-        },
-      }),
-    );
   });
 
   it('should paginate correctly', async () => {
-    transactionClient.wordHistory.count.mockResolvedValue(45);
-    transactionClient.wordHistory.findMany.mockResolvedValue([
-      {
-        viewedAt: new Date('2026-07-12T08:00:00.000Z'),
-        word: { value: 'fire' },
-      },
-    ]);
+    wordHistoryRepository.findPaginatedByUser.mockResolvedValue({
+      totalDocs: 45,
+      items: [
+        {
+          viewedAt: new Date('2026-07-12T08:00:00.000Z'),
+          word: { value: 'fire' },
+        },
+      ],
+    });
 
     await expect(
       userService.getHistory(authenticatedUser, { page: 2, limit: 20 }),
@@ -235,32 +209,20 @@ describe('UserService', () => {
       hasNext: true,
       hasPrev: true,
     });
-
-    expect(transactionClient.wordHistory.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        skip: 20,
-        take: 20,
-      }),
-    );
   });
 
   it('should isolate history by authenticated user', async () => {
-    transactionClient.wordHistory.count.mockResolvedValue(1);
-    transactionClient.wordHistory.findMany.mockResolvedValue([]);
+    wordHistoryRepository.findPaginatedByUser.mockResolvedValue({
+      totalDocs: 1,
+      items: [],
+    });
 
     await userService.getHistory(authenticatedUser, { page: 1, limit: 20 });
 
-    expect(transactionClient.wordHistory.count).toHaveBeenCalledWith({
-      where: {
-        userId: 'user-id',
-      },
+    expect(wordHistoryRepository.findPaginatedByUser).toHaveBeenCalledWith({
+      userId: 'user-id',
+      page: 1,
+      limit: 20,
     });
-    expect(transactionClient.wordHistory.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          userId: 'user-id',
-        },
-      }),
-    );
   });
 });

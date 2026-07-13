@@ -1,10 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
+import { Exclude, Expose, Transform } from 'class-transformer';
 import { IsOptional, IsString } from 'class-validator';
 import {
   PaginatedResponseMetaDto,
   PaginationQueryDto,
 } from '../../common/dtos/pagination.dto';
+import { serializeDto } from '../../common/utils/serialization.util';
 
 function normalizeSearchValue(value: unknown): unknown {
   if (typeof value !== 'string') {
@@ -27,11 +28,39 @@ export class ListEntriesQueryDto extends PaginationQueryDto {
   search?: string;
 }
 
+@Exclude()
 export class ListEntriesResponseDto extends PaginatedResponseMetaDto {
   @ApiProperty({
     description: 'Palavras retornadas na página atual.',
     example: ['fire', 'firefly'],
     type: [String],
   })
+  @Expose()
   results!: string[];
+
+  @Expose()
+  declare totalDocs: number;
+
+  @Expose()
+  declare page: number;
+
+  @Expose()
+  declare totalPages: number;
+
+  @Expose()
+  declare hasNext: boolean;
+
+  @Expose()
+  declare hasPrev: boolean;
+
+  static from(data: {
+    results: string[];
+    totalDocs: number;
+    page: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  }): ListEntriesResponseDto {
+    return serializeDto(ListEntriesResponseDto, data);
+  }
 }

@@ -5,21 +5,17 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { compare, hash } from 'bcryptjs';
-import { PrismaService } from '../infrastructure/database/prisma/prisma.service';
+import {
+  type AuthUserRecord,
+  UserRepository,
+} from '../infrastructure/database/repositories/user.repository';
 import { AuthTokenService } from './auth-token.service';
 import { AuthResponseDto, SignInDto, SignUpDto } from './dtos/auth.dto';
-
-interface AuthUser {
-  id: string;
-  name: string;
-  email: string;
-  passwordHash: string;
-}
 
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly prismaService: PrismaService,
+    private readonly userRepository: UserRepository,
     private readonly authTokenService: AuthTokenService,
   ) {}
 
@@ -29,18 +25,10 @@ export class AuthService {
     const passwordHash = await hash(signUpDto.password, 12);
 
     try {
-      const user = await this.prismaService.user.create({
-        data: {
-          name: normalizedName,
-          email: normalizedEmail,
-          passwordHash,
-        },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          passwordHash: true,
-        },
+      const user = await this.userRepository.createAuthUser({
+        name: normalizedName,
+        email: normalizedEmail,
+        passwordHash,
       });
 
       return this.buildAuthResponse(user);
@@ -57,17 +45,7 @@ export class AuthService {
 
   async signIn(signInDto: SignInDto): Promise<AuthResponseDto> {
     const normalizedEmail = this.normalizeEmail(signInDto.email);
-    const user = await this.prismaService.user.findUnique({
-      where: {
-        email: normalizedEmail,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        passwordHash: true,
-      },
-    });
+    const user = await this.userRepository.findAuthUserByEmail(normalizedEmail);
 
     if (!user) {
       throw new UnauthorizedException('E-mail ou senha inválidos.');
@@ -85,14 +63,14 @@ export class AuthService {
     return this.buildAuthResponse(user);
   }
 
-  private buildAuthResponse(user: AuthUser): AuthResponseDto {
-    return {
+  private buildAuthResponse(user: AuthUserRecord): AuthResponseDto {
+    return AuthResponseDto.from({
       id: user.id,
       name: user.name,
       token: this.authTokenService.generateToken({
         sub: user.id,
       }),
-    };
+    });
   }
 
   private normalizeName(name: string): string {

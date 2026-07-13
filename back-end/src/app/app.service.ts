@@ -5,10 +5,10 @@ import { RootResponseDto } from './dto/root-response.dto';
 @Injectable()
 export class AppService {
   getRootMessage(): RootResponseDto {
-    return { message: 'English Dictionary' };
+    return RootResponseDto.fromMessage('English Dictionary');
   }
 
   getHealth(): HealthResponseDto {
-    return { status: 'ok' };
+    return HealthResponseDto.ok();
   }
 }

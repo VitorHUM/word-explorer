@@ -1,7 +1,7 @@
 import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { compare, hash } from 'bcryptjs';
-import { PrismaService } from '../infrastructure/database/prisma/prisma.service';
+import { UserRepository } from '../infrastructure/database/repositories/user.repository';
 import { AuthTokenService } from './auth-token.service';
 import { AuthService } from './auth.service';
 
@@ -20,38 +20,19 @@ interface CreateUserArgs {
   };
 }
 
-interface FindUniqueUserArgs {
-  where: {
-    email: string;
-  };
-  select: {
-    id: boolean;
-    name: boolean;
-    email: boolean;
-    passwordHash: boolean;
-  };
-}
-
 describe('AuthService', () => {
   let authService: AuthService;
-  let prismaService: {
-    user: {
-      create: jest.Mock<Promise<CreatedUser>, [CreateUserArgs]>;
-      findUnique: jest.Mock<Promise<CreatedUser | null>, [FindUniqueUserArgs]>;
-    };
+  let userRepository: {
+    createAuthUser: jest.Mock<Promise<CreatedUser>, [CreateUserArgs['data']]>;
+    findAuthUserByEmail: jest.Mock<Promise<CreatedUser | null>, [string]>;
   };
   let authTokenService: AuthTokenService;
   let jwtService: { sign: jest.Mock };
 
   beforeEach(() => {
-    prismaService = {
-      user: {
-        create: jest.fn<Promise<CreatedUser>, [CreateUserArgs]>(),
-        findUnique: jest.fn<
-          Promise<CreatedUser | null>,
-          [FindUniqueUserArgs]
-        >(),
-      },
+    userRepository = {
+      createAuthUser: jest.fn<Promise<CreatedUser>, [CreateUserArgs['data']]>(),
+      findAuthUserByEmail: jest.fn<Promise<CreatedUser | null>, [string]>(),
     };
 
     jwtService = {
@@ -66,17 +47,17 @@ describe('AuthService', () => {
 
     authTokenService = new AuthTokenService(jwtServiceInstance);
 
-    const prismaServiceInstance = Object.create(
-      PrismaService.prototype,
-    ) as PrismaService;
+    const userRepositoryInstance = Object.create(
+      UserRepository.prototype,
+    ) as UserRepository;
 
-    Object.assign(prismaServiceInstance, prismaService);
+    Object.assign(userRepositoryInstance, userRepository);
 
-    authService = new AuthService(prismaServiceInstance, authTokenService);
+    authService = new AuthService(userRepositoryInstance, authTokenService);
   });
 
   it('should sign up a valid user', async () => {
-    prismaService.user.create.mockResolvedValue({
+    userRepository.createAuthUser.mockResolvedValue({
       id: '4ec6ad59-ec9e-4064-a174-c976dff6cd1f',
       name: 'User 1',
       email: 'example@email.com',
@@ -97,7 +78,7 @@ describe('AuthService', () => {
   });
 
   it('should reject duplicate email', async () => {
-    prismaService.user.create.mockRejectedValue({ code: 'P2002' });
+    userRepository.createAuthUser.mockRejectedValue({ code: 'P2002' });
 
     await expect(
       authService.signUp({
@@ -111,7 +92,7 @@ describe('AuthService', () => {
   });
 
   it('should store the password exclusively as a hash', async () => {
-    prismaService.user.create.mockImplementation(({ data }: CreateUserArgs) =>
+    userRepository.createAuthUser.mockImplementation((data) =>
       Promise.resolve({
         id: '4ec6ad59-ec9e-4064-a174-c976dff6cd1f',
         name: data.name,
@@ -126,22 +107,22 @@ describe('AuthService', () => {
       password: 'test',
     });
 
-    const createCall = prismaService.user.create.mock.calls.at(0)?.[0];
+    const createCall = userRepository.createAuthUser.mock.calls.at(0)?.[0];
 
     expect(createCall).toBeDefined();
 
     if (!createCall) {
-      throw new Error('Expected prisma user.create to be called.');
+      throw new Error('Expected userRepository.createAuthUser to be called.');
     }
 
-    const storedPasswordHash = createCall.data.passwordHash;
+    const storedPasswordHash = createCall.passwordHash;
 
     expect(storedPasswordHash).not.toBe('test');
     await expect(compare('test', storedPasswordHash)).resolves.toBe(true);
   });
 
   it('should not expose passwordHash in the response', async () => {
-    prismaService.user.create.mockResolvedValue({
+    userRepository.createAuthUser.mockResolvedValue({
       id: '4ec6ad59-ec9e-4064-a174-c976dff6cd1f',
       name: 'User 1',
       email: 'example@email.com',
@@ -158,7 +139,7 @@ describe('AuthService', () => {
   });
 
   it('should normalize the email before persisting the user', async () => {
-    prismaService.user.create.mockImplementation(({ data }: CreateUserArgs) =>
+    userRepository.createAuthUser.mockImplementation((data) =>
       Promise.resolve({
         id: '4ec6ad59-ec9e-4064-a174-c976dff6cd1f',
         name: data.name,
@@ -173,19 +154,19 @@ describe('AuthService', () => {
       password: 'test',
     });
 
-    const createCall = prismaService.user.create.mock.calls.at(0)?.[0];
+    const createCall = userRepository.createAuthUser.mock.calls.at(0)?.[0];
 
     expect(createCall).toBeDefined();
 
     if (!createCall) {
-      throw new Error('Expected prisma user.create to be called.');
+      throw new Error('Expected userRepository.createAuthUser to be called.');
     }
 
-    expect(createCall.data.email).toBe('example@email.com');
+    expect(createCall.email).toBe('example@email.com');
   });
 
   it('should sign in a valid user', async () => {
-    prismaService.user.findUnique.mockResolvedValue({
+    userRepository.findAuthUserByEmail.mockResolvedValue({
       id: '4ec6ad59-ec9e-4064-a174-c976dff6cd1f',
       name: 'User 1',
       email: 'example@email.com',
@@ -205,7 +186,7 @@ describe('AuthService', () => {
   });
 
   it('should reject a nonexistent user with a generic credentials message', async () => {
-    prismaService.user.findUnique.mockResolvedValue(null);
+    userRepository.findAuthUserByEmail.mockResolvedValue(null);
 
     await expect(
       authService.signIn({
@@ -216,7 +197,7 @@ describe('AuthService', () => {
   });
 
   it('should reject an invalid password with a generic credentials message', async () => {
-    prismaService.user.findUnique.mockResolvedValue({
+    userRepository.findAuthUserByEmail.mockResolvedValue({
       id: '4ec6ad59-ec9e-4064-a174-c976dff6cd1f',
       name: 'User 1',
       email: 'example@email.com',
@@ -232,7 +213,7 @@ describe('AuthService', () => {
   });
 
   it('should normalize the email before searching for a user during sign in', async () => {
-    prismaService.user.findUnique.mockResolvedValue({
+    userRepository.findAuthUserByEmail.mockResolvedValue({
       id: '4ec6ad59-ec9e-4064-a174-c976dff6cd1f',
       name: 'User 1',
       email: 'example@email.com',
@@ -244,19 +225,22 @@ describe('AuthService', () => {
       password: 'test',
     });
 
-    const findUniqueCall = prismaService.user.findUnique.mock.calls.at(0)?.[0];
+    const findByEmailCall =
+      userRepository.findAuthUserByEmail.mock.calls.at(0)?.[0];
 
-    expect(findUniqueCall).toBeDefined();
+    expect(findByEmailCall).toBeDefined();
 
-    if (!findUniqueCall) {
-      throw new Error('Expected prisma user.findUnique to be called.');
+    if (!findByEmailCall) {
+      throw new Error(
+        'Expected userRepository.findAuthUserByEmail to be called.',
+      );
     }
 
-    expect(findUniqueCall.where.email).toBe('example@email.com');
+    expect(findByEmailCall).toBe('example@email.com');
   });
 
   it('should not expose sensitive fields in the sign in response', async () => {
-    prismaService.user.findUnique.mockResolvedValue({
+    userRepository.findAuthUserByEmail.mockResolvedValue({
       id: '4ec6ad59-ec9e-4064-a174-c976dff6cd1f',
       name: 'User 1',
       email: 'example@email.com',
