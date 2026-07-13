@@ -153,7 +153,7 @@ describe('Back-end requirements (e2e)', () => {
     });
     const signUpBody = getResponseBody(signUpResponse);
 
-    expect(signUpResponse.status).toBe(201);
+    expect(signUpResponse.status).toBe(200);
     expect(signUpBody).toEqual({
       id: anyString(),
       name: 'User E2E',
@@ -171,7 +171,7 @@ describe('Back-end requirements (e2e)', () => {
       });
     const signInBody = getResponseBody(signInResponse);
 
-    expect(signInResponse.status).toBe(201);
+    expect(signInResponse.status).toBe(200);
     expect(signInBody).toEqual({
       id: signUpBody.id,
       name: 'User E2E',
@@ -204,8 +204,6 @@ describe('Back-end requirements (e2e)', () => {
     expect(response.status).toBe(401);
     expect(response.body).toEqual({
       message: 'O token de autorização é obrigatório.',
-      error: 'Unauthorized',
-      statusCode: 401,
     });
     expectResponseTime(response.headers);
     expect(response.headers['x-cache']).toBeUndefined();
@@ -416,7 +414,7 @@ describe('Back-end requirements (e2e)', () => {
       });
     const body = getResponseBody(response);
 
-    expect(response.status).toBe(201);
+    expect(response.status).toBe(200);
     expect(typeof body.id).toBe('string');
     expect(body.token).toEqual(matchingString(/^Bearer\s.+/));
 

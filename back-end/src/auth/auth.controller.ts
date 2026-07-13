@@ -1,8 +1,8 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiConflictResponse,
-  ApiCreatedResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
@@ -16,10 +16,11 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('signup')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Cadastrar um novo usuário',
   })
-  @ApiCreatedResponse({
+  @ApiOkResponse({
     description: 'Usuário cadastrado com sucesso.',
     type: AuthResponseDto,
   })
@@ -29,8 +30,6 @@ export class AuthController {
       'application/json': {
         example: {
           message: 'Os dados enviados na requisição são inválidos.',
-          error: 'Bad Request',
-          statusCode: 400,
         },
       },
     },
@@ -41,8 +40,6 @@ export class AuthController {
       'application/json': {
         example: {
           message: 'Já existe um usuário cadastrado com este e-mail.',
-          error: 'Conflict',
-          statusCode: 409,
         },
       },
     },
@@ -52,10 +49,11 @@ export class AuthController {
   }
 
   @Post('signin')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Autenticar um usuário existente',
   })
-  @ApiCreatedResponse({
+  @ApiOkResponse({
     description: 'Usuário autenticado com sucesso.',
     type: AuthResponseDto,
   })
@@ -65,8 +63,6 @@ export class AuthController {
       'application/json': {
         example: {
           message: 'Os dados enviados na requisição são inválidos.',
-          error: 'Bad Request',
-          statusCode: 400,
         },
       },
     },
@@ -77,8 +73,6 @@ export class AuthController {
       'application/json': {
         example: {
           message: 'E-mail ou senha inválidos.',
-          error: 'Unauthorized',
-          statusCode: 401,
         },
       },
     },

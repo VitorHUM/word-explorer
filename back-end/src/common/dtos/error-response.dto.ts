@@ -6,16 +6,4 @@ export class ErrorResponseDto {
     example: 'O token de autorização é obrigatório.',
   })
   message!: string;
-
-  @ApiProperty({
-    description: 'Descrição HTTP padrão do erro.',
-    example: 'Unauthorized',
-  })
-  error!: string;
-
-  @ApiProperty({
-    description: 'Status code HTTP retornado.',
-    example: 401,
-  })
-  statusCode!: number;
 }

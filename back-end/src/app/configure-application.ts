@@ -3,11 +3,13 @@ import {
   type INestApplication,
   ValidationPipe,
 } from '@nestjs/common';
+import { HttpExceptionFilter } from '../common/filters/http-exception.filter';
 import { CacheableResponseInterceptor } from '../infrastructure/http/cacheable-response.interceptor';
 import { ResponseTimeInterceptor } from './response-time.interceptor';
 
 export function configureApplication(app: INestApplication): void {
   app.enableShutdownHooks();
+  app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(
     app.get(CacheableResponseInterceptor),
     new ResponseTimeInterceptor(),

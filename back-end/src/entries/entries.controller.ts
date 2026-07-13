@@ -54,8 +54,6 @@ export class EntriesController {
         example: {
           message:
             'page deve ser maior ou igual a 1.; limit deve ser menor ou igual a 100.',
-          error: 'Bad Request',
-          statusCode: 400,
         },
       },
     },

@@ -44,24 +44,18 @@ export class UserController {
             summary: 'Sem token',
             value: {
               message: 'O token de autorização é obrigatório.',
-              error: 'Unauthorized',
-              statusCode: 401,
             },
           },
           tokenInvalido: {
             summary: 'Token inválido',
             value: {
               message: 'O token informado é inválido.',
-              error: 'Unauthorized',
-              statusCode: 401,
             },
           },
           tokenExpirado: {
             summary: 'Token expirado',
             value: {
               message: 'O token expirou.',
-              error: 'Unauthorized',
-              statusCode: 401,
             },
           },
         },
