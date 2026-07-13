@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { AuthenticatedUser } from '../auth/types/auth.type';
+import { CacheService } from '../infrastructure/cache/cache.service';
 import { PrismaService } from '../infrastructure/database/prisma/prisma.service';
 import { FreeDictionaryClient } from '../infrastructure/dictionary/free-dictionary.client';
 import type { FreeDictionaryResult } from '../infrastructure/dictionary/free-dictionary.type';
@@ -13,16 +14,32 @@ import { EntryDetailsDto } from './dtos/entry-details.dto';
 @Injectable()
 export class EntriesService {
   constructor(
+    private readonly cacheService: CacheService,
     private readonly prismaService: PrismaService,
     private readonly freeDictionaryClient: FreeDictionaryClient,
   ) {}
 
   async listEnglishEntries(
     query: ListEntriesQueryDto,
-  ): Promise<ListEntriesResponseDto> {
-    const normalizedSearch = query.search?.trim().toLowerCase();
+  ): Promise<CacheableResponseBody<ListEntriesResponseDto>> {
+    const normalizedSearch = this.normalizeSearch(query.search);
     const page = query.page;
     const limit = query.limit;
+    const cacheKey = this.buildListCacheKey({
+      normalizedSearch,
+      page,
+      limit,
+    });
+    const cachedResponse =
+      await this.cacheService.get<ListEntriesResponseDto>(cacheKey);
+
+    if (cachedResponse.data) {
+      return {
+        body: cachedResponse.data,
+        cacheStatus: cachedResponse.status,
+      };
+    }
+
     const where = normalizedSearch
       ? {
           value: {
@@ -54,12 +71,19 @@ export class EntriesService {
       },
     );
 
-    return this.buildPaginatedResponse({
+    const response = this.buildPaginatedResponse({
       results: words.map((word) => word.value),
       totalDocs,
       page,
       limit,
     });
+
+    await this.cacheService.set(cacheKey, response);
+
+    return {
+      body: response,
+      cacheStatus: 'MISS',
+    };
   }
 
   private buildPaginatedResponse(params: {
@@ -79,6 +103,16 @@ export class EntriesService {
       hasNext: totalPages > 0 && params.page < totalPages,
       hasPrev: params.page > 1 && totalPages > 0,
     };
+  }
+
+  private buildListCacheKey(params: {
+    normalizedSearch?: string;
+    page: number;
+    limit: number;
+  }): string {
+    const searchToken = params.normalizedSearch ?? 'none';
+
+    return `dictionary:list:en:search=${searchToken}:page=${params.page}:limit=${params.limit}`;
   }
 
   async getEnglishEntryDetails(
@@ -126,5 +160,11 @@ export class EntriesService {
 
   private normalizeWord(word: string): string {
     return word.trim().toLowerCase();
+  }
+
+  private normalizeSearch(search?: string): string | undefined {
+    const normalizedSearch = search?.trim().toLowerCase();
+
+    return normalizedSearch || undefined;
   }
 }

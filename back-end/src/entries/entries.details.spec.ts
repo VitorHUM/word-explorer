@@ -1,11 +1,16 @@
 import { NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import type { AuthenticatedUser } from '../auth/types/auth.type';
+import { CacheService } from '../infrastructure/cache/cache.service';
 import { PrismaService } from '../infrastructure/database/prisma/prisma.service';
 import { FreeDictionaryClient } from '../infrastructure/dictionary/free-dictionary.client';
 import { EntriesService } from './entries.service';
 
 describe('EntriesService details', () => {
   let entriesService: EntriesService;
+  let cacheService: {
+    get: jest.Mock;
+    set: jest.Mock;
+  };
   let prismaService: {
     dictionaryWord: {
       findUnique: jest.Mock;
@@ -40,6 +45,11 @@ describe('EntriesService details', () => {
       getEnglishEntryWithCache: jest.fn(),
     };
 
+    cacheService = {
+      get: jest.fn(),
+      set: jest.fn(),
+    };
+
     const prismaServiceInstance = Object.create(
       PrismaService.prototype,
     ) as PrismaService;
@@ -50,9 +60,15 @@ describe('EntriesService details', () => {
       FreeDictionaryClient.prototype,
     ) as FreeDictionaryClient;
 
+    const cacheServiceInstance = Object.create(
+      CacheService.prototype,
+    ) as CacheService;
+
     Object.assign(freeDictionaryClientInstance, freeDictionaryClient);
+    Object.assign(cacheServiceInstance, cacheService);
 
     entriesService = new EntriesService(
+      cacheServiceInstance,
       prismaServiceInstance,
       freeDictionaryClientInstance,
     );

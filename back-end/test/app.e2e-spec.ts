@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
 import { configureApplication } from './../src/app/configure-application';
+import { CacheService } from './../src/infrastructure/cache/cache.service';
 import { PrismaService } from './../src/infrastructure/database/prisma/prisma.service';
 import { FreeDictionaryClient } from './../src/infrastructure/dictionary/free-dictionary.client';
 
@@ -10,11 +11,52 @@ describe('AppController (e2e)', () => {
   let app: INestApplication;
   let prismaService: PrismaService;
   const dictionaryCacheState = new Set<string>();
+  const entriesCacheState = new Map<string, Record<string, unknown>>();
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
+      .overrideProvider(CacheService)
+      .useValue({
+        get: jest.fn((key: string) => {
+          const cachedValue = entriesCacheState.get(key);
+
+          return Promise.resolve(
+            cachedValue
+              ? { status: 'HIT' as const, data: cachedValue }
+              : { status: 'MISS' as const, data: null },
+          );
+        }),
+        getJson: jest.fn((key: string) =>
+          Promise.resolve(entriesCacheState.get(key) ?? null),
+        ),
+        set: jest.fn((key: string, value: Record<string, unknown>) => {
+          entriesCacheState.set(key, value);
+          return Promise.resolve();
+        }),
+        setJson: jest.fn((key: string, value: Record<string, unknown>) => {
+          entriesCacheState.set(key, value);
+          return Promise.resolve();
+        }),
+        delete: jest.fn((key: string) => {
+          entriesCacheState.delete(key);
+          return Promise.resolve();
+        }),
+        deleteByPattern: jest.fn((pattern: string) => {
+          const prefix = pattern.replace('*', '');
+          let deletedCount = 0;
+
+          for (const key of Array.from(entriesCacheState.keys())) {
+            if (key.startsWith(prefix)) {
+              entriesCacheState.delete(key);
+              deletedCount += 1;
+            }
+          }
+
+          return Promise.resolve({ deletedCount, failed: false });
+        }),
+      })
       .overrideProvider(FreeDictionaryClient)
       .useValue({
         getEnglishEntryWithCache: jest.fn((word: string) =>
@@ -274,7 +316,13 @@ describe('AppController (e2e)', () => {
     const responseBody = responseBodyUnknown as Record<string, unknown>;
 
     expect(response.status).toBe(200);
-    expect(response.headers['x-cache']).toBeUndefined();
+    expect(response.headers['x-cache']).toBe('MISS');
+    expect(response.headers['x-response-time']).toEqual(
+      expect.stringMatching(/^\d+$/),
+    );
+    expect(Number(response.headers['x-response-time'])).toBeGreaterThanOrEqual(
+      0,
+    );
     expect(responseBody).toEqual({
       results: [`${wordPrefix}a`, `${wordPrefix}b`],
       totalDocs: 3,
@@ -283,6 +331,67 @@ describe('AppController (e2e)', () => {
       hasNext: true,
       hasPrev: false,
     });
+
+    await prismaService.dictionaryWord.deleteMany({
+      where: {
+        value: {
+          in: values,
+        },
+      },
+    });
+    await prismaService.user.deleteMany({
+      where: { email },
+    });
+  });
+
+  it('/entries/en (GET) should return HIT on an identical repeated query', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const email = `entries-hit-${Date.now()}@email.com`;
+    const wordPrefix = `entriescache${Date.now()}`;
+    const values = [`${wordPrefix}a`, `${wordPrefix}b`];
+
+    entriesCacheState.clear();
+
+    const signUpResponse = await request(httpServer).post('/auth/signup').send({
+      name: 'User 1',
+      email,
+      password: 'test',
+    });
+    const signUpResponseBodyUnknown: unknown = signUpResponse.body;
+
+    if (
+      typeof signUpResponseBodyUnknown !== 'object' ||
+      signUpResponseBodyUnknown === null
+    ) {
+      throw new Error('Expected the signup response body to be an object.');
+    }
+
+    const signUpResponseBody = signUpResponseBodyUnknown as Record<
+      string,
+      unknown
+    >;
+    const token = signUpResponseBody.token;
+
+    if (typeof token !== 'string') {
+      throw new Error('Expected the signup token to be a string.');
+    }
+
+    await prismaService.dictionaryWord.createMany({
+      data: values.map((value) => ({ value })),
+      skipDuplicates: true,
+    });
+
+    const firstResponse = await request(httpServer)
+      .get(`/entries/en?search=${wordPrefix}&page=1&limit=20`)
+      .set('Authorization', token);
+    const secondResponse = await request(httpServer)
+      .get(`/entries/en?search=${wordPrefix}&page=1&limit=20`)
+      .set('Authorization', token);
+
+    expect(firstResponse.status).toBe(200);
+    expect(firstResponse.headers['x-cache']).toBe('MISS');
+    expect(secondResponse.status).toBe(200);
+    expect(secondResponse.headers['x-cache']).toBe('HIT');
 
     await prismaService.dictionaryWord.deleteMany({
       where: {

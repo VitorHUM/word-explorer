@@ -59,7 +59,7 @@ export class HttpLoggingMiddleware implements NestMiddleware {
         : null;
 
       const message = [
-        this.buildMethodPathLog(method, requestPath, outerColor),
+        this.buildMethodPathLog(method, requestPath),
         `Status Code = ${this.colorizeStatusCode(statusCode, outerColor)}`,
         `Elapsed Time = ${elapsedMs}ms`,
         cacheStatus,
@@ -96,11 +96,7 @@ export class HttpLoggingMiddleware implements NestMiddleware {
     return ` ${ANSI.WHITE}|${outerColor || ANSI.RESET} `;
   }
 
-  private buildMethodPathLog(
-    method: string,
-    requestPath: string,
-    outerColor: string,
-  ): string {
+  private buildMethodPathLog(method: string, requestPath: string): string {
     const color = METHOD_COLOR[method] ?? '';
 
     const coloredMethod = `${color}${ANSI.BOLD}${method}\x1b[22m`;

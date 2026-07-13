@@ -29,6 +29,8 @@ export class EntriesController {
   @ApiBearerAuth('bearer')
   @ApiOperation({
     summary: 'Listar palavras em inglês',
+    description:
+      'A busca utiliza prefixo case-insensitive e a resposta é armazenada em cache com chave determinística baseada em search, page e limit.',
   })
   @ApiOkResponse({
     description: 'Retorna a lista paginada de palavras do dicionário.',
@@ -50,9 +52,8 @@ export class EntriesController {
   @ApiUnauthorizedResponse({
     description: 'O token está ausente, malformado, inválido ou expirado.',
   })
-  listEnglishEntries(
-    @Query() query: ListEntriesQueryDto,
-  ): Promise<ListEntriesResponseDto> {
+  @CacheableResponse()
+  listEnglishEntries(@Query() query: ListEntriesQueryDto): Promise<unknown> {
     return this.entriesService.listEnglishEntries(query);
   }
 
