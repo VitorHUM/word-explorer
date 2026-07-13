@@ -10,6 +10,10 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/types/auth.type';
 import {
+  UserFavoritesQueryDto,
+  UserFavoritesResponseDto,
+} from './dtos/user-favorites.dto';
+import {
   UserHistoryQueryDto,
   UserHistoryResponseDto,
 } from './dtos/user-history.dto';
@@ -94,5 +98,25 @@ export class UserController {
     @Query() query: UserHistoryQueryDto,
   ): Promise<UserHistoryResponseDto> {
     return this.userService.getHistory(authenticatedUser, query);
+  }
+
+  @Get('me/favorites')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: 'Obter os favoritos paginados do usuário autenticado',
+  })
+  @ApiOkResponse({
+    description: 'Retorna os favoritos paginados do usuário autenticado.',
+    type: UserFavoritesResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'O token está ausente, malformado, inválido ou expirado.',
+  })
+  getFavorites(
+    @CurrentUser() authenticatedUser: AuthenticatedUser,
+    @Query() query: UserFavoritesQueryDto,
+  ): Promise<UserFavoritesResponseDto> {
+    return this.userService.getFavorites(authenticatedUser, query);
   }
 }

@@ -5,6 +5,10 @@ import { UserService } from './user.service';
 describe('UserService', () => {
   let userService: UserService;
   let transactionClient: {
+    favoriteWord: {
+      count: jest.Mock;
+      findMany: jest.Mock;
+    };
     wordHistory: {
       count: jest.Mock;
       findMany: jest.Mock;
@@ -27,6 +31,10 @@ describe('UserService', () => {
 
   beforeEach(() => {
     transactionClient = {
+      favoriteWord: {
+        count: jest.fn(),
+        findMany: jest.fn(),
+      },
       wordHistory: {
         count: jest.fn(),
         findMany: jest.fn(),
@@ -47,6 +55,106 @@ describe('UserService', () => {
     Object.assign(prismaServiceInstance, prismaService);
 
     userService = new UserService(prismaServiceInstance);
+  });
+
+  it('should return an empty favorites list', async () => {
+    transactionClient.favoriteWord.count.mockResolvedValue(0);
+    transactionClient.favoriteWord.findMany.mockResolvedValue([]);
+
+    await expect(
+      userService.getFavorites(authenticatedUser, { page: 1, limit: 20 }),
+    ).resolves.toEqual({
+      results: [],
+      totalDocs: 0,
+      page: 1,
+      totalPages: 0,
+      hasNext: false,
+      hasPrev: false,
+    });
+  });
+
+  it('should order favorites from most recent to oldest', async () => {
+    transactionClient.favoriteWord.count.mockResolvedValue(2);
+    transactionClient.favoriteWord.findMany.mockResolvedValue([
+      {
+        createdAt: new Date('2026-07-12T10:00:00.000Z'),
+        word: { value: 'fire' },
+      },
+      {
+        createdAt: new Date('2026-07-12T09:00:00.000Z'),
+        word: { value: 'firefly' },
+      },
+    ]);
+
+    await expect(
+      userService.getFavorites(authenticatedUser, { page: 1, limit: 20 }),
+    ).resolves.toEqual({
+      results: [
+        { word: 'fire', added: '2026-07-12T10:00:00.000Z' },
+        { word: 'firefly', added: '2026-07-12T09:00:00.000Z' },
+      ],
+      totalDocs: 2,
+      page: 1,
+      totalPages: 1,
+      hasNext: false,
+      hasPrev: false,
+    });
+
+    expect(transactionClient.favoriteWord.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+    );
+  });
+
+  it('should paginate favorites correctly', async () => {
+    transactionClient.favoriteWord.count.mockResolvedValue(45);
+    transactionClient.favoriteWord.findMany.mockResolvedValue([
+      {
+        createdAt: new Date('2026-07-12T08:00:00.000Z'),
+        word: { value: 'fire' },
+      },
+    ]);
+
+    await expect(
+      userService.getFavorites(authenticatedUser, { page: 2, limit: 20 }),
+    ).resolves.toEqual({
+      results: [{ word: 'fire', added: '2026-07-12T08:00:00.000Z' }],
+      totalDocs: 45,
+      page: 2,
+      totalPages: 3,
+      hasNext: true,
+      hasPrev: true,
+    });
+
+    expect(transactionClient.favoriteWord.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skip: 20,
+        take: 20,
+      }),
+    );
+  });
+
+  it('should isolate favorites by authenticated user', async () => {
+    transactionClient.favoriteWord.count.mockResolvedValue(1);
+    transactionClient.favoriteWord.findMany.mockResolvedValue([]);
+
+    await userService.getFavorites(authenticatedUser, { page: 1, limit: 20 });
+
+    expect(transactionClient.favoriteWord.count).toHaveBeenCalledWith({
+      where: {
+        userId: 'user-id',
+      },
+    });
+    expect(transactionClient.favoriteWord.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          userId: 'user-id',
+        },
+      }),
+    );
   });
 
   it('should return an empty history', async () => {
