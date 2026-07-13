@@ -244,6 +244,16 @@ export async function importDictionaryWords(
       );
     }
 
+    if (process.env.NODE_ENV !== 'test') {
+      currentLogger.log(
+        'Processo concluído com sucesso! Encerrando o container...',
+      );
+
+      setTimeout(() => {
+        process.exit(0);
+      }, 500);
+    }
+
     return summary;
   } finally {
     await prismaClient.$disconnect();

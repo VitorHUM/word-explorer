@@ -20,6 +20,7 @@ function normalizeIntegerValue(value: unknown): unknown {
 
 export class PaginationQueryDto {
   @ApiPropertyOptional({
+    type: Number,
     description: 'Página atual da listagem.',
     example: 1,
     default: 1,
@@ -32,6 +33,7 @@ export class PaginationQueryDto {
   page = 1;
 
   @ApiPropertyOptional({
+    type: Number,
     description: 'Quantidade de itens por página.',
     example: 20,
     default: 20,
