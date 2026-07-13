@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOkResponse,
@@ -9,11 +9,18 @@ import {
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/types/auth.type';
+import {
+  UserHistoryQueryDto,
+  UserHistoryResponseDto,
+} from './dtos/user-history.dto';
 import { UserProfileDto } from './dtos/user-profile.dto';
+import { UserService } from './user.service';
 
 @ApiTags('Usuário')
 @Controller('user')
 export class UserController {
+  constructor(private readonly userService: UserService) {}
+
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('bearer')
@@ -67,5 +74,25 @@ export class UserController {
       createdAt: authenticatedUser.createdAt.toISOString(),
       updatedAt: authenticatedUser.updatedAt.toISOString(),
     };
+  }
+
+  @Get('me/history')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: 'Obter o histórico paginado do usuário autenticado',
+  })
+  @ApiOkResponse({
+    description: 'Retorna o histórico paginado do usuário autenticado.',
+    type: UserHistoryResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'O token está ausente, malformado, inválido ou expirado.',
+  })
+  getHistory(
+    @CurrentUser() authenticatedUser: AuthenticatedUser,
+    @Query() query: UserHistoryQueryDto,
+  ): Promise<UserHistoryResponseDto> {
+    return this.userService.getHistory(authenticatedUser, query);
   }
 }

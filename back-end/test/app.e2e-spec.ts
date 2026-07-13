@@ -266,6 +266,109 @@ describe('AppController (e2e)', () => {
     });
   });
 
+  it('/user/me/history (GET) should return only the authenticated user history', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const emailA = `history-a-${Date.now()}@email.com`;
+    const emailB = `history-b-${Date.now()}@email.com`;
+    const wordA = `historyworda${Date.now()}`;
+    const wordB = `historywordb${Date.now()}`;
+
+    await prismaService.dictionaryWord.createMany({
+      data: [{ value: wordA }, { value: wordB }],
+      skipDuplicates: true,
+    });
+
+    const signUpResponseA = await request(httpServer)
+      .post('/auth/signup')
+      .send({
+        name: 'User A',
+        email: emailA,
+        password: 'test',
+      });
+    await request(httpServer).post('/auth/signup').send({
+      name: 'User B',
+      email: emailB,
+      password: 'test',
+    });
+
+    const signUpBodyA = signUpResponseA.body as Record<string, unknown>;
+    const tokenA = signUpBodyA.token;
+
+    if (typeof tokenA !== 'string') {
+      throw new Error('Expected user A token to be a string.');
+    }
+
+    const userA = await prismaService.user.findUnique({
+      where: { email: emailA },
+      select: { id: true },
+    });
+    const userB = await prismaService.user.findUnique({
+      where: { email: emailB },
+      select: { id: true },
+    });
+    const dictionaryWordA = await prismaService.dictionaryWord.findUnique({
+      where: { value: wordA },
+      select: { id: true },
+    });
+    const dictionaryWordB = await prismaService.dictionaryWord.findUnique({
+      where: { value: wordB },
+      select: { id: true },
+    });
+
+    if (!userA || !userB || !dictionaryWordA || !dictionaryWordB) {
+      throw new Error('Expected users and words to be persisted.');
+    }
+
+    await prismaService.wordHistory.createMany({
+      data: [
+        {
+          userId: userA.id,
+          wordId: dictionaryWordA.id,
+          viewedAt: new Date('2026-07-12T10:00:00.000Z'),
+        },
+        {
+          userId: userA.id,
+          wordId: dictionaryWordA.id,
+          viewedAt: new Date('2026-07-12T09:00:00.000Z'),
+        },
+        {
+          userId: userB.id,
+          wordId: dictionaryWordB.id,
+          viewedAt: new Date('2026-07-12T11:00:00.000Z'),
+        },
+      ],
+    });
+
+    const response = await request(httpServer)
+      .get('/user/me/history?page=1&limit=20')
+      .set('Authorization', tokenA);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      results: [
+        { word: wordA, added: '2026-07-12T10:00:00.000Z' },
+        { word: wordA, added: '2026-07-12T09:00:00.000Z' },
+      ],
+      totalDocs: 2,
+      page: 1,
+      totalPages: 1,
+      hasNext: false,
+      hasPrev: false,
+    });
+
+    await prismaService.wordHistory.deleteMany({
+      where: {
+        userId: { in: [userA.id, userB.id] },
+      },
+    });
+    await prismaService.user.deleteMany({
+      where: { email: { in: [emailA, emailB] } },
+    });
+    await prismaService.dictionaryWord.deleteMany({
+      where: { value: { in: [wordA, wordB] } },
+    });
+  });
+
   it('/entries/en (GET) should return authenticated paginated search results', async () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
     const email = `entries-${Date.now()}@email.com`;

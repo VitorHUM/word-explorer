@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { AuthenticatedUser } from '../auth/types/auth.type';
+import { buildPaginatedResponse } from '../common/dtos/pagination.dto';
 import { CacheService } from '../infrastructure/cache/cache.service';
 import { PrismaService } from '../infrastructure/database/prisma/prisma.service';
 import { FreeDictionaryClient } from '../infrastructure/dictionary/free-dictionary.client';
@@ -71,7 +72,7 @@ export class EntriesService {
       },
     );
 
-    const response = this.buildPaginatedResponse({
+    const response = buildPaginatedResponse({
       results: words.map((word) => word.value),
       totalDocs,
       page,
@@ -83,25 +84,6 @@ export class EntriesService {
     return {
       body: response,
       cacheStatus: 'MISS',
-    };
-  }
-
-  private buildPaginatedResponse(params: {
-    results: string[];
-    totalDocs: number;
-    page: number;
-    limit: number;
-  }): ListEntriesResponseDto {
-    const totalPages =
-      params.totalDocs === 0 ? 0 : Math.ceil(params.totalDocs / params.limit);
-
-    return {
-      results: params.results,
-      totalDocs: params.totalDocs,
-      page: params.page,
-      totalPages,
-      hasNext: totalPages > 0 && params.page < totalPages,
-      hasPrev: params.page > 1 && totalPages > 0,
     };
   }
 
