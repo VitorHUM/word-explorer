@@ -76,7 +76,7 @@ describe('EntriesService details', () => {
     await expect(
       entriesService.getEnglishEntryDetails(authenticatedUser, 'fire'),
     ).resolves.toEqual({
-      details: {
+      body: {
         word: 'fire',
         phonetics: [],
         meanings: [],
@@ -104,7 +104,7 @@ describe('EntriesService details', () => {
     await expect(
       entriesService.getEnglishEntryDetails(authenticatedUser, 'fire'),
     ).resolves.toEqual({
-      details: {
+      body: {
         word: 'fire',
         phonetics: [{ text: '/faɪə/' }],
         meanings: [],

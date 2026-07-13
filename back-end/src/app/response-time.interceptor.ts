@@ -30,6 +30,6 @@ export class ResponseTimeInterceptor implements NestInterceptor {
         ? response.locals.requestStartedAt
         : performance.now();
 
-    return `${Math.round(performance.now() - startedAt)}ms`;
+    return String(Math.round(performance.now() - startedAt));
   }
 }

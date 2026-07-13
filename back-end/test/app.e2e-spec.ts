@@ -59,7 +59,13 @@ describe('AppController (e2e)', () => {
     return request(httpServer)
       .get('/')
       .expect(200)
-      .expect({ message: 'English Dictionary' });
+      .expect(({ body, headers }) => {
+        expect(body).toEqual({ message: 'English Dictionary' });
+        expect(headers['x-response-time']).toEqual(
+          expect.stringMatching(/^\d+$/),
+        );
+        expect(Number(headers['x-response-time'])).toBeGreaterThanOrEqual(0);
+      });
   });
 
   it('/auth/signup (POST)', async () => {
@@ -86,6 +92,12 @@ describe('AppController (e2e)', () => {
     expect(typeof responseBody.id).toBe('string');
     expect(responseBody.name).toBe('User 1');
     expect(responseBody.token).toEqual(expect.stringMatching(/^Bearer\s.+/));
+    expect(response.headers['x-response-time']).toEqual(
+      expect.stringMatching(/^\d+$/),
+    );
+    expect(Number(response.headers['x-response-time'])).toBeGreaterThanOrEqual(
+      0,
+    );
     expect(responseBody).not.toHaveProperty('passwordHash');
 
     await prismaService.user.deleteMany({
@@ -262,6 +274,7 @@ describe('AppController (e2e)', () => {
     const responseBody = responseBodyUnknown as Record<string, unknown>;
 
     expect(response.status).toBe(200);
+    expect(response.headers['x-cache']).toBeUndefined();
     expect(responseBody).toEqual({
       results: [`${wordPrefix}a`, `${wordPrefix}b`],
       totalDocs: 3,
@@ -382,12 +395,17 @@ describe('AppController (e2e)', () => {
     expect(response.status).toBe(200);
     expect(response.headers['x-cache']).toBe('MISS');
     expect(response.headers['x-response-time']).toEqual(
-      expect.stringMatching(/^[0-9]+ms$/),
+      expect.stringMatching(/^\d+$/),
+    );
+    expect(Number(response.headers['x-response-time'])).toBeGreaterThanOrEqual(
+      0,
     );
     expect(responseBody.word).toBe(word);
     expect(Array.isArray(responseBody.phonetics)).toBe(true);
     expect(Array.isArray(responseBody.meanings)).toBe(true);
     expect(Array.isArray(responseBody.sourceUrls)).toBe(true);
+    expect(responseBody).not.toHaveProperty('cacheStatus');
+    expect(responseBody).not.toHaveProperty('body');
 
     const persistedUser = await prismaService.user.findUnique({
       where: { email },
@@ -471,14 +489,20 @@ describe('AppController (e2e)', () => {
     expect(firstResponse.status).toBe(200);
     expect(firstResponse.headers['x-cache']).toBe('MISS');
     expect(firstResponse.headers['x-response-time']).toEqual(
-      expect.stringMatching(/^[0-9]+ms$/),
+      expect.stringMatching(/^\d+$/),
     );
+    expect(
+      Number(firstResponse.headers['x-response-time']),
+    ).toBeGreaterThanOrEqual(0);
 
     expect(secondResponse.status).toBe(200);
     expect(secondResponse.headers['x-cache']).toBe('HIT');
     expect(secondResponse.headers['x-response-time']).toEqual(
-      expect.stringMatching(/^[0-9]+ms$/),
+      expect.stringMatching(/^\d+$/),
     );
+    expect(
+      Number(secondResponse.headers['x-response-time']),
+    ).toBeGreaterThanOrEqual(0);
 
     const persistedUser = await prismaService.user.findUnique({
       where: { email },

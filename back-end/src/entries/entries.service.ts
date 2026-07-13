@@ -2,10 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import type { AuthenticatedUser } from '../auth/types/auth.type';
 import { PrismaService } from '../infrastructure/database/prisma/prisma.service';
 import { FreeDictionaryClient } from '../infrastructure/dictionary/free-dictionary.client';
-import type {
-  DictionaryEntryCacheStatus,
-  FreeDictionaryResult,
-} from '../infrastructure/dictionary/free-dictionary.type';
+import type { FreeDictionaryResult } from '../infrastructure/dictionary/free-dictionary.type';
+import type { CacheableResponseBody } from '../infrastructure/http/cacheable-response.interceptor';
 import {
   ListEntriesQueryDto,
   ListEntriesResponseDto,
@@ -86,10 +84,7 @@ export class EntriesService {
   async getEnglishEntryDetails(
     authenticatedUser: AuthenticatedUser,
     word: string,
-  ): Promise<{
-    details: EntryDetailsDto;
-    cacheStatus: DictionaryEntryCacheStatus;
-  }> {
+  ): Promise<CacheableResponseBody<EntryDetailsDto>> {
     const normalizedWord = this.normalizeWord(word);
     const localWord = await this.prismaService.dictionaryWord.findUnique({
       where: {
@@ -115,7 +110,7 @@ export class EntriesService {
     });
 
     return {
-      details: this.mapEntryDetails(entryResult.entry),
+      body: this.mapEntryDetails(entryResult.entry),
       cacheStatus: entryResult.cacheStatus,
     };
   }

@@ -3,11 +3,15 @@ import {
   type INestApplication,
   ValidationPipe,
 } from '@nestjs/common';
+import { CacheableResponseInterceptor } from '../infrastructure/http/cacheable-response.interceptor';
 import { ResponseTimeInterceptor } from './response-time.interceptor';
 
 export function configureApplication(app: INestApplication): void {
   app.enableShutdownHooks();
-  app.useGlobalInterceptors(new ResponseTimeInterceptor());
+  app.useGlobalInterceptors(
+    app.get(CacheableResponseInterceptor),
+    new ResponseTimeInterceptor(),
+  );
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

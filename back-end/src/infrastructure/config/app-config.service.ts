@@ -31,6 +31,10 @@ export class AppConfigService {
     return this.configService.getOrThrow('REDIS_PORT', { infer: true });
   }
 
+  get redisTtlSeconds(): number {
+    return this.configService.getOrThrow('REDIS_TTL_SECONDS', { infer: true });
+  }
+
   get jwtSecret(): string {
     return this.configService.getOrThrow('JWT_SECRET', { infer: true });
   }

@@ -19,6 +19,7 @@ const environmentValidationSchema = Joi.object({
     .required(),
   REDIS_HOST: hostnameSchema.required(),
   REDIS_PORT: Joi.number().port().required(),
+  REDIS_TTL_SECONDS: Joi.number().integer().positive().required(),
   JWT_SECRET: Joi.string().trim().min(1).required(),
   JWT_EXPIRES_IN: Joi.string().trim().min(1).required(),
   DICTIONARY_API_URL: Joi.string()

@@ -8,6 +8,7 @@ export interface EnvironmentVariables {
   DATABASE_URL: string;
   REDIS_HOST: string;
   REDIS_PORT: number;
+  REDIS_TTL_SECONDS: number;
   JWT_SECRET: string;
   JWT_EXPIRES_IN: string;
   DICTIONARY_API_URL: string;

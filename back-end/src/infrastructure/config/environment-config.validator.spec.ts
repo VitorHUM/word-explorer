@@ -9,9 +9,10 @@ describe('validateEnvironment', () => {
         'postgresql://word_explorer:word_explorer@localhost:5432/word_explorer?schema=public',
       REDIS_HOST: '127.0.0.1',
       REDIS_PORT: '6379',
+      REDIS_TTL_SECONDS: '3600',
       JWT_SECRET: 'super-secret',
       JWT_EXPIRES_IN: '15m',
-      DICTIONARY_API_URL: 'https://api.dictionaryapi.dev/api/v2/entries/en',
+      DICTIONARY_API_URL: 'https://api.dictionaryapi.dev/api/v2',
       DICTIONARY_CACHE_TTL_SECONDS: '3600',
     });
 
@@ -22,9 +23,10 @@ describe('validateEnvironment', () => {
         'postgresql://word_explorer:word_explorer@localhost:5432/word_explorer?schema=public',
       REDIS_HOST: '127.0.0.1',
       REDIS_PORT: 6379,
+      REDIS_TTL_SECONDS: 3600,
       JWT_SECRET: 'super-secret',
       JWT_EXPIRES_IN: '15m',
-      DICTIONARY_API_URL: 'https://api.dictionaryapi.dev/api/v2/entries/en',
+      DICTIONARY_API_URL: 'https://api.dictionaryapi.dev/api/v2',
       DICTIONARY_CACHE_TTL_SECONDS: 3600,
     });
   });
@@ -37,6 +39,7 @@ describe('validateEnvironment', () => {
         DATABASE_URL: 'not-a-url',
         REDIS_HOST: '',
         REDIS_PORT: '0',
+        REDIS_TTL_SECONDS: '-1',
         JWT_SECRET: '',
         JWT_EXPIRES_IN: '',
         DICTIONARY_API_URL: 'ftp://dictionary.example.com',

@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -8,10 +8,10 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import type { Response } from 'express';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/types/auth.type';
+import { CacheableResponse } from '../infrastructure/http/cacheable-response.decorator';
 import {
   ListEntriesQueryDto,
   ListEntriesResponseDto,
@@ -76,17 +76,14 @@ export class EntriesController {
     description:
       'Palavra não encontrada na base local ou no dicionário externo.',
   })
+  @CacheableResponse()
   getEnglishEntryDetails(
     @CurrentUser() authenticatedUser: AuthenticatedUser,
     @Param() params: EntryWordParamDto,
-    @Res({ passthrough: true }) response: Response,
-  ): Promise<EntryDetailsDto> {
-    return this.entriesService
-      .getEnglishEntryDetails(authenticatedUser, params.word)
-      .then((result) => {
-        response.setHeader('x-cache', result.cacheStatus);
-
-        return result.details;
-      });
+  ): Promise<unknown> {
+    return this.entriesService.getEnglishEntryDetails(
+      authenticatedUser,
+      params.word,
+    );
   }
 }

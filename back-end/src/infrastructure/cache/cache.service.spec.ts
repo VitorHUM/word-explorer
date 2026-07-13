@@ -7,8 +7,19 @@ interface RedisClientMock {
   quit: jest.Mock<Promise<void>, []>;
   get: jest.Mock<Promise<string | null>, [string]>;
   set: jest.Mock<Promise<string>, [string, string, { EX: number }]>;
-  del: jest.Mock<Promise<number>, [string]>;
-  on: jest.Mock<void, [string, (error: Error) => void]>;
+  del: jest.Mock<Promise<number>, [string | string[]]>;
+  scanIterator: jest.Mock<
+    AsyncIterable<string>,
+    [{ MATCH: string; COUNT: number }]
+  >;
+  on: jest.Mock<void, ['error', (error: Error) => void]>;
+}
+
+async function* createAsyncKeyIterator(keys: string[]): AsyncIterable<string> {
+  for (const key of keys) {
+    await Promise.resolve();
+    yield key;
+  }
 }
 
 describe('CacheService', () => {
@@ -17,15 +28,21 @@ describe('CacheService', () => {
 
   beforeEach(() => {
     redisClient = {
-      isOpen: true,
-      connect: jest.fn(() => Promise.resolve()),
-      quit: jest.fn(() => Promise.resolve()),
+      isOpen: false,
+      connect: jest.fn<Promise<void>, []>(() => Promise.resolve()),
+      quit: jest.fn<Promise<void>, []>(() => Promise.resolve()),
       get: jest.fn<Promise<string | null>, [string]>(),
-      set: jest.fn<Promise<string>, [string, string, { EX: number }]>(() =>
-        Promise.resolve('OK'),
+      set: jest
+        .fn<Promise<string>, [string, string, { EX: number }]>()
+        .mockResolvedValue('OK'),
+      del: jest.fn<Promise<number>, [string | string[]]>(() =>
+        Promise.resolve(1),
       ),
-      del: jest.fn<Promise<number>, [string]>(() => Promise.resolve(1)),
-      on: jest.fn<void, [string, (error: Error) => void]>(),
+      scanIterator: jest.fn<
+        AsyncIterable<string>,
+        [{ MATCH: string; COUNT: number }]
+      >(() => createAsyncKeyIterator([])),
+      on: jest.fn<void, ['error', (error: Error) => void]>(),
     };
 
     const appConfigService = Object.create(
@@ -38,6 +55,9 @@ describe('CacheService', () => {
     Object.defineProperty(appConfigService, 'redisPort', {
       value: 6379,
     });
+    Object.defineProperty(appConfigService, 'redisTtlSeconds', {
+      value: 3600,
+    });
 
     cacheService = new CacheService(appConfigService);
     Object.assign(cacheService as object, {
@@ -45,24 +65,36 @@ describe('CacheService', () => {
     });
   });
 
-  it('should return a cached value on HIT', async () => {
+  it('should connect on module init', async () => {
+    await cacheService.onModuleInit();
+
+    expect(redisClient.connect).toHaveBeenCalledTimes(1);
+  });
+
+  it('should return HIT when the key exists', async () => {
+    redisClient.isOpen = true;
     redisClient.get.mockResolvedValue('{"word":"fire"}');
 
-    await expect(
-      cacheService.getJson<{ word: string }>('key'),
-    ).resolves.toEqual({
-      word: 'fire',
+    await expect(cacheService.get<{ word: string }>('key')).resolves.toEqual({
+      status: 'HIT',
+      data: { word: 'fire' },
     });
   });
 
-  it('should return null on MISS', async () => {
+  it('should return MISS when the key does not exist', async () => {
+    redisClient.isOpen = true;
     redisClient.get.mockResolvedValue(null);
 
-    await expect(cacheService.getJson('key')).resolves.toBeNull();
+    await expect(cacheService.get('key')).resolves.toEqual({
+      status: 'MISS',
+      data: null,
+    });
   });
 
   it('should store values with TTL', async () => {
-    await cacheService.setJson('key', { word: 'fire' }, 3600);
+    redisClient.isOpen = true;
+
+    await cacheService.set('key', { word: 'fire' }, 3600);
 
     expect(redisClient.set).toHaveBeenCalledWith(
       'key',
@@ -71,20 +103,52 @@ describe('CacheService', () => {
     );
   });
 
-  it('should treat invalid cache as MISS', async () => {
+  it('should treat invalid JSON as MISS', async () => {
+    redisClient.isOpen = true;
     redisClient.get.mockResolvedValue('invalid-json');
 
-    await expect(cacheService.getJson('key')).resolves.toBeNull();
+    await expect(cacheService.get('key')).resolves.toEqual({
+      status: 'MISS',
+      data: null,
+    });
     expect(redisClient.del).toHaveBeenCalledWith('key');
   });
 
-  it('should tolerate Redis unavailability', async () => {
-    redisClient.isOpen = false;
+  it('should tolerate Redis failure without throwing', async () => {
     redisClient.connect.mockRejectedValue(new Error('connection failed'));
 
-    await expect(cacheService.getJson('key')).resolves.toBeNull();
+    await expect(cacheService.get('key')).resolves.toEqual({
+      status: 'MISS',
+      data: null,
+    });
     await expect(
-      cacheService.setJson('key', { word: 'fire' }, 3600),
+      cacheService.set('key', { word: 'fire' }, 3600),
     ).resolves.toBeUndefined();
+  });
+
+  it('should remove a single key', async () => {
+    redisClient.isOpen = true;
+
+    await expect(cacheService.delete('key')).resolves.toBeUndefined();
+    expect(redisClient.del).toHaveBeenCalledWith('key');
+  });
+
+  it('should remove keys by pattern', async () => {
+    redisClient.isOpen = true;
+    redisClient.scanIterator.mockReturnValue(
+      createAsyncKeyIterator([
+        'dictionary:entry:en:fire',
+        'dictionary:entry:en:firefly',
+      ]),
+    );
+    redisClient.del.mockResolvedValue(2);
+
+    await expect(
+      cacheService.deleteByPattern('dictionary:entry:en:*'),
+    ).resolves.toBe(2);
+    expect(redisClient.del).toHaveBeenCalledWith([
+      'dictionary:entry:en:fire',
+      'dictionary:entry:en:firefly',
+    ]);
   });
 });
