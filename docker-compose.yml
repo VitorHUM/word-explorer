@@ -104,12 +104,25 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
+      PORT: 3000
       API_BASE_URL: http://back-end:3001
     ports:
       - '3000:3000'
     depends_on:
       back-end:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "const http=require('http');const port=process.env.PORT||3000;const req=http.request({host:'127.0.0.1',port,path:'/',timeout:3000},res=>process.exit(res.statusCode<500?0:1));req.on('error',()=>process.exit(1));req.on('timeout',()=>{req.destroy();process.exit(1)});req.end();",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
 
 volumes:
   postgres-data:

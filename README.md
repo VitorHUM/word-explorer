@@ -121,6 +121,19 @@ Crie `front-end/.env.local` a partir de `front-end/.env.example`.
 API_BASE_URL=http://localhost:3001
 ```
 
+No Docker Compose, o front-end usa a URL interna abaixo para o servidor Next.js alcançar a API:
+
+```env
+API_BASE_URL=http://back-end:3001
+```
+
+Resumo das URLs:
+
+- navegador para a web: `http://localhost:3000`
+- navegador para a API: normalmente desnecessário, pois a web usa `/api/*`
+- servidor Next.js para a API fora do Docker: `http://localhost:3001`
+- servidor Next.js para a API no Docker: `http://back-end:3001`
+
 ## Como rodar localmente
 
 ### 1. Instalar dependências do back-end
@@ -213,6 +226,13 @@ docker compose --profile tools run --rm back-end-import
 ```bash
 docker compose up -d back-end front-end
 ```
+
+O Compose usa os nomes internos de rede abaixo:
+
+- `postgres`
+- `redis`
+- `back-end`
+- `front-end`
 
 ### Ver logs
 

@@ -79,7 +79,14 @@ API_BASE_URL=http://localhost:3001
 
 Descrição:
 
-- `API_BASE_URL`: URL base da API NestJS consumida pelos route handlers do Next.js
+- `API_BASE_URL`: URL interna usada pelos route handlers do Next.js para falar com a API NestJS
+
+Diferença importante entre browser e servidor:
+
+- navegador: acessa a aplicação em `http://localhost:3000`
+- browser para o back-end: não precisa falar direto com a API, pois usa `/api/*` do próprio Next.js
+- servidor Next.js fora do Docker: usa `API_BASE_URL=http://localhost:3001`
+- servidor Next.js no Docker Compose: usa `API_BASE_URL=http://back-end:3001`
 
 ## Como rodar localmente
 
@@ -123,6 +130,13 @@ docker compose up -d front-end
 ```
 
 Esse comando pressupõe que o serviço `back-end` esteja disponível na rede do Compose, pois o container usa `API_BASE_URL=http://back-end:3001`.
+
+Imagem de produção:
+
+- usa build multi-stage
+- aproveita `output: "standalone"` do Next.js
+- executa com usuário não-root
+- expõe healthcheck HTTP no próprio container
 
 ### Ver logs da aplicação
 
@@ -446,6 +460,15 @@ npm run test
 npm run test:coverage
 npm run format
 npm run build
+```
+
+Comandos úteis para Docker:
+
+```bash
+docker compose build front-end
+docker compose up -d front-end
+docker compose logs -f front-end
+docker compose ps
 ```
 
 Comandos focados para a suíte de front-end:

@@ -3,13 +3,13 @@
 FROM node:22-alpine AS base
 WORKDIR /app
 ENV CI=true
+ENV NEXT_TELEMETRY_DISABLED=1
 COPY package*.json ./
 
 FROM base AS deps
 RUN npm ci
 
 FROM base AS builder
-ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY eslint.config.mjs next.config.ts tsconfig.json postcss.config.mjs tailwind.config.ts ./
 COPY public ./public
@@ -23,11 +23,13 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-COPY --from=builder --chown=node:node /app/.next/standalone ./
-COPY --from=builder --chown=node:node /app/.next/static ./.next/static
-COPY --from=builder --chown=node:node /app/public ./public
+RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 
-USER node
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+
+USER nextjs
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
