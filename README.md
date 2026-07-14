@@ -1,259 +1,142 @@
 # Word Explorer
 
-Aplicação full-stack para consulta, histórico e gerenciamento de palavras em inglês. O back-end em NestJS concentra autenticação, persistência, cache e proxy da Free Dictionary API. O front-end em Next.js entrega a interface web, protege rotas autenticadas e usa route handlers para manter o JWT em cookie `httpOnly`.
+> Plataforma para explorar palavras em inglês com histórico e favoritos.
 
-## Objetivo
+## Visão Geral
 
-- Autenticar usuários com JWT
-- Consultar palavras em inglês
-- Exibir detalhes, fonética, áudio, definições, sinônimos, antônimos e fontes
-- Registrar histórico de consultas por usuário
-- Gerenciar favoritos
-- Listar o dicionário com busca e paginação
-- Proteger rotas web autenticadas
-- Manter tokens fora de `localStorage`
-- Permitir execução local ou via Docker Compose
+O projeto é composto por:
 
-## Stack
+| Camada | Papel | Stack principal |
+| --- | --- | --- |
+| `back-end/` | API REST, autenticação, banco, cache e integração com dicionário externo | NestJS, Prisma, PostgreSQL, Redis |
+| `front-end/` | Aplicação web, autenticação via cookie `httpOnly`, UI e proxies `/api/*` | Next.js 15, React 19, TanStack Query |
 
-### Back-end
-
-- Node.js
-- TypeScript
-- NestJS
-- Prisma
-- PostgreSQL
-- Redis
-- Swagger
-- Jest
-- Docker
-
-### Front-end
-
-- Node.js
-- TypeScript
-- Next.js 15 com App Router
-- React 19
-- Tailwind CSS
-- Radix UI
-- TanStack Query
-- React Hook Form
-- Zod
-- Jest
-- Docker
-
-## Arquitetura geral
+### Fluxo principal
 
 ```text
-Browser -> Next.js -> Route Handlers /api/* -> NestJS API -> PostgreSQL
-                                                        -> Redis
-                                                        -> Free Dictionary API
+Browser -> Front-end Next.js -> Route Handlers /api/* -> Back-end NestJS
+                                                     -> PostgreSQL
+                                                     -> Redis
+                                                     -> Free Dictionary API
 ```
 
-- O browser acessa a aplicação Next.js em `http://localhost:3000`
-- O front-end usa `/api/*` como camada server-side para falar com o back-end
-- O Next.js salva o JWT em cookie `httpOnly`
-- O back-end valida JWT, consulta PostgreSQL, usa Redis para cache e chama a Free Dictionary API quando precisa de detalhes
-- O PostgreSQL armazena usuários, palavras importadas, histórico e favoritos
-- O Redis armazena respostas cacheáveis do back-end
+## Funcionalidades
+
+| Recurso | Status | Resumo |
+| --- | --- | --- |
+| Cadastro e login | Implementado | JWT emitido pelo back-end e persistido em cookie `httpOnly` no front-end |
+| Proteção de páginas | Implementado | Middleware no front-end e validação real da sessão no back-end |
+| Busca no dicionário | Implementado | Busca paginada sobre lista importada no PostgreSQL |
+| Detalhes da palavra | Implementado | Consulta ao dicionário externo com cache e registro em histórico |
+| Favoritos | Implementado | Criar/remover favorito com atualização otimista no front-end |
+| Histórico | Implementado | Histórico paginado por usuário |
+| Swagger | Implementado | Disponível apenas no back-end |
+| Deploy público | Não configurado | Nenhum link público informado no repositório |
+
+## Arquitetura
+
+| Área | Descrição |
+| --- | --- |
+| Autenticação | Back-end gera `Bearer <jwt>`; front-end salva token em cookie `httpOnly` |
+| Integração interna | Browser fala com o próprio Next.js; Next.js fala com a API via `API_BASE_URL` |
+| Persistência | PostgreSQL armazena usuários, lista de palavras, histórico e favoritos |
+| Cache | Redis armazena respostas cacheáveis da API |
+| Observabilidade | API responde com `x-response-time` em todas as rotas e `x-cache` nas rotas cacheáveis |
+
+## Estrutura de Pastas
+
+```text
+.
+├── back-end/
+│   ├── prisma/
+│   ├── src/
+│   ├── Dockerfile
+│   └── README.md
+├── front-end/
+│   ├── public/
+│   ├── src/
+│   ├── Dockerfile
+│   └── README.md
+├── docker-compose.yml
+└── README.md
+```
+
+## Tecnologias
+
+| Área | Tecnologias |
+| --- | --- |
+| Back-end | Node.js, TypeScript, NestJS, Prisma, PostgreSQL, Redis, Swagger, Jest |
+| Front-end | Next.js 15, React 19, TypeScript, Tailwind CSS, Radix UI, TanStack Query, React Hook Form, Zod, Jest |
+| Infra | Docker, Docker Compose |
 
 ## Requisitos
 
-- Node.js 20+
-- npm 10+
-- PostgreSQL 14+ ou container Docker
-- Redis 7+ ou container Docker
-- Docker e Docker Compose opcionais
+| Item | Versão sugerida |
+| --- | --- |
+| Node.js | 20+ |
+| npm | 10+ |
+| Docker | atual |
+| Docker Compose | atual |
 
-## Estrutura útil
+## Configuração do Ambiente
 
-- `back-end`: API REST em NestJS
-- `back-end/src/auth`: autenticação e JWT
-- `back-end/src/entries`: listagem, detalhes e favoritos
-- `back-end/src/user`: perfil, histórico e favoritos do usuário
-- `back-end/src/dictionary/dictionary-importer.ts`: importação da lista de palavras
-- `front-end`: aplicação web em Next.js
-- `front-end/src/app`: páginas, layouts e route handlers
-- `front-end/src/components`: componentes de UI e domínio
-- `front-end/src/hooks`: hooks de sessão, palavras e favoritos
-- `front-end/src/services`: clientes HTTP e integrações
-- `docker-compose.yml`: PostgreSQL, Redis, API, web e containers auxiliares
+### Variáveis do back-end
 
-## Portas e recursos
+Copie `back-end/.env.example` para `back-end/.env`.
 
-- Front-end: `http://localhost:3000`
-- API: `http://localhost:3001`
-- Healthcheck da API: `http://localhost:3001/health`
-- Swagger UI: `http://localhost:3001/docs`
-- OpenAPI JSON: `http://localhost:3001/docs/json`
-- PostgreSQL: `localhost:5432`
-- Redis: `localhost:6379`
+### Variáveis do front-end
 
-## Variáveis de ambiente
+Copie `front-end/.env.example` para `front-end/.env.local`.
 
-### Back-end
+### URLs importantes
 
-Crie `back-end/.env` a partir de `back-end/.env.example`.
+| Contexto | URL |
+| --- | --- |
+| Navegador -> Front-end | `http://localhost:3000` |
+| Navegador -> Back-end | `http://localhost:3001` |
+| Next.js fora do Docker -> Back-end | `http://localhost:3001` |
+| Next.js no Docker -> Back-end | `http://back-end:3001` |
 
-```env
-NODE_ENV=development
-PORT=3001
-DATABASE_URL="postgresql://word_explorer:word_explorer@localhost:5432/word_explorer?schema=public"
-CORS_ALLOWED_ORIGINS=http://localhost:3000
-REDIS_HOST=127.0.0.1
-REDIS_PORT=6379
-REDIS_TTL_SECONDS=3600
-THROTTLE_TTL_MS=60000
-THROTTLE_LIMIT=300
-AUTH_THROTTLE_TTL_MS=60000
-AUTH_THROTTLE_LIMIT=30
-JWT_SECRET=change-me
-JWT_EXPIRES_IN=60m
-DICTIONARY_API_URL=https://api.dictionaryapi.dev/api/v2
-DICTIONARY_CACHE_TTL_SECONDS=3600
-```
+## Execução Local
 
-### Front-end
+<details>
+<summary><strong>Passo a passo</strong></summary>
 
-Crie `front-end/.env.local` a partir de `front-end/.env.example`.
-
-```env
-API_BASE_URL=http://localhost:3001
-```
-
-No Docker Compose, o front-end usa a URL interna abaixo para o servidor Next.js alcançar a API:
-
-```env
-API_BASE_URL=http://back-end:3001
-```
-
-Resumo das URLs:
-
-- navegador para a web: `http://localhost:3000`
-- navegador para a API: normalmente desnecessário, pois a web usa `/api/*`
-- servidor Next.js para a API fora do Docker: `http://localhost:3001`
-- servidor Next.js para a API no Docker: `http://back-end:3001`
-
-## Como rodar localmente
-
-### 1. Instalar dependências do back-end
-
-```bash
-cd back-end
-npm install
-```
-
-### 2. Configurar ambiente do back-end
-
-```bash
-cp .env.example .env
-```
-
-### 3. Subir PostgreSQL e Redis
-
-Na raiz do repositório:
+### 1. Subir infraestrutura
 
 ```bash
 docker compose up -d postgres redis
 ```
 
-### 4. Preparar banco e dicionário
-
-Em `back-end`:
+### 2. Configurar e iniciar o back-end
 
 ```bash
+cd back-end
+cp .env.example .env
+npm install
 npm run prisma:generate
 npm run prisma:migrate:deploy
 npm run dictionary:import
-```
-
-### 5. Iniciar API
-
-Em `back-end`:
-
-```bash
 npm run start:dev
 ```
 
-### 6. Instalar dependências do front-end
+### 3. Configurar e iniciar o front-end
 
 Em outro terminal:
 
 ```bash
 cd front-end
-npm install
-```
-
-### 7. Configurar ambiente do front-end
-
-```bash
 cp .env.example .env.local
-```
-
-### 8. Iniciar web
-
-```bash
+npm install
 npm run dev
 ```
 
-### 9. Acessar a aplicação
+</details>
 
-- Web: `http://localhost:3000`
-- API: `http://localhost:3001`
+## Execução com Docker
 
-## Como rodar com Docker Compose
-
-### Subir banco e cache
-
-```bash
-docker compose up -d postgres redis
-```
-
-### Aplicar migrations
-
-```bash
-docker compose --profile tools run --rm back-end-migrate
-```
-
-### Importar palavras
-
-```bash
-docker compose --profile tools run --rm back-end-import
-```
-
-### Subir API e web
-
-```bash
-docker compose up -d back-end front-end
-```
-
-O Compose usa os nomes internos de rede abaixo:
-
-- `postgres`
-- `redis`
-- `back-end`
-- `front-end`
-
-### Ver logs
-
-```bash
-docker compose logs -f back-end
-docker compose logs -f front-end
-```
-
-### Derrubar containers
-
-```bash
-docker compose down
-```
-
-### Derrubar containers e volumes
-
-```bash
-docker compose down -v
-```
-
-## Fluxo recomendado para ambiente limpo com Docker
+<details>
+<summary><strong>Fluxo completo com Docker Compose</strong></summary>
 
 ```bash
 docker compose up -d postgres redis
@@ -262,204 +145,123 @@ docker compose --profile tools run --rm back-end-import
 docker compose up -d back-end front-end
 ```
 
-## Scripts úteis
+</details>
+
+### Serviços internos do Compose
+
+| Serviço | Nome interno |
+| --- | --- |
+| PostgreSQL | `postgres` |
+| Redis | `redis` |
+| Back-end | `back-end` |
+| Front-end | `front-end` |
+
+## Migrations
+
+| Contexto | Comando |
+| --- | --- |
+| Local | `cd back-end && npm run prisma:migrate:deploy` |
+| Docker | `docker compose --profile tools run --rm back-end-migrate` |
+
+## Importação do Dicionário
+
+| Contexto | Comando |
+| --- | --- |
+| Local | `cd back-end && npm run dictionary:import` |
+| Docker | `docker compose --profile tools run --rm back-end-import` |
+
+Resumo:
+
+- baixa `words_dictionary.json` do repositório `dwyl/english-words`
+- normaliza as palavras
+- insere em lotes no PostgreSQL
+- invalida o cache de listagem quando necessário
+
+## Testes
+
+### Comandos testados neste repositório
+
+| Projeto | Comando |
+| --- | --- |
+| Back-end | `cd back-end && npm ci` |
+| Back-end | `cd back-end && npm run build` |
+| Front-end | `cd front-end && npm run lint` |
+| Front-end | `cd front-end && npm run test -- --runInBand` |
+| Front-end | `cd front-end && npm run build` |
+| Docker | `docker compose build back-end` |
+| Docker | `docker compose build front-end` |
+
+### Outros comandos úteis
+
+| Projeto | Comando |
+| --- | --- |
+| Back-end | `cd back-end && npm run test` |
+| Back-end | `cd back-end && npm run test:e2e` |
+| Front-end | `cd front-end && npm run test:coverage` |
+
+## Swagger
+
+Swagger existe apenas no back-end.
+
+| Recurso | URL |
+| --- | --- |
+| Swagger UI | `http://localhost:3001/docs` |
+| OpenAPI JSON | `http://localhost:3001/docs/json` |
+
+## Endpoints
 
 ### Back-end
 
-```bash
-npm run start:dev
-npm run build
-npm run start:prod
-npm run lint
-npm run test
-npm run test:e2e
-npm run prisma:generate
-npm run prisma:migrate:deploy
-npm run prisma:studio
-npm run dictionary:import
-```
+| Grupo | Exemplos |
+| --- | --- |
+| Aplicação | `GET /`, `GET /health` |
+| Auth | `POST /auth/signup`, `POST /auth/signin` |
+| Entradas | `GET /entries/en`, `GET /entries/en/:word` |
+| Favoritos | `POST /entries/en/:word/favorite`, `DELETE /entries/en/:word/unfavorite` |
+| Usuário | `GET /user/me`, `GET /user/me/history`, `GET /user/me/favorites` |
 
 ### Front-end
 
-```bash
-npm run dev
-npm run build
-npm run start
-npm run lint
-npm run test
-npm run test:coverage
-npm run format
-```
+| Grupo | Exemplos |
+| --- | --- |
+| Páginas públicas | `/`, `/login`, `/register` |
+| Páginas protegidas | `/home`, `/dictionary`, `/favorites`, `/profile`, `/word/[word]` |
+| Proxies internos | `/api/auth/*`, `/api/entries/*`, `/api/user/*` |
 
-## Autenticação
+## Cache
 
-O back-end emite JWT no formato `Bearer <jwt>` em `POST /auth/signup` e `POST /auth/signin`.
+| Camada | Comportamento |
+| --- | --- |
+| Back-end | Redis para respostas cacheáveis de listagem e detalhes |
+| Front-end | TanStack Query para cache de sessão, listas, detalhes e favoritos |
 
-O front-end não entrega esse token ao JavaScript do browser. O fluxo usado pela aplicação web é:
+## Headers `x-cache` e `x-response-time`
 
-```text
-Browser -> Next.js /api/auth/signin -> NestJS /auth/signin -> cookie httpOnly
-```
+| Header | Onde aparece | Significado |
+| --- | --- | --- |
+| `x-response-time` | todas as respostas da API | tempo de processamento em milissegundos |
+| `x-cache: HIT` | rotas cacheáveis da API | resposta servida do Redis |
+| `x-cache: MISS` | rotas cacheáveis da API | resposta buscada na origem |
 
-Nas chamadas autenticadas:
+## Decisões Técnicas
 
-```text
-Browser -> Next.js /api/* -> NestJS API com Authorization: Bearer <jwt>
-```
+- JWT fica fora de `localStorage`
+- o browser não chama o Back-end autenticado diretamente
+- o Front-end usa route handlers para proteger o token
+- o Back-end mantém PostgreSQL para persistência e Redis para cache
+- `output: "standalone"` é usado no Front-end para um container de produção menor
+- o dicionário local evita depender da API externa para listagem
 
-## Segurança aplicada
+## Limitações
 
-- JWT com segredo externo ao código
-- Cookie `httpOnly` no front-end
-- Token fora de `localStorage`
-- CORS restritivo no back-end
-- `helmet` no back-end
-- Throttling global e throttling específico de autenticação
-- Validação de entrada no back-end com DTOs e `ValidationPipe`
-- Validação de formulários e respostas no front-end com Zod
-- Links externos com `rel="noopener noreferrer"`
-- Sem uso de `dangerouslySetInnerHTML` no front-end
+- detalhes da palavra ainda dependem da Free Dictionary API
+- a listagem só fica útil depois da importação do dicionário
 
-## Formato de erro
+## Links de Referência
 
-O formato esperado de erro é:
-
-```json
-{ "message": "Error message" }
-```
-
-O back-end centraliza erros humanizados, e o front-end exibe mensagens de erro nas telas de formulário, listagem e detalhes.
-
-## Paginação
-
-O projeto usa paginação por `page` e `limit`.
-
-Parâmetros padrão:
-
-- `page=1`
-- `limit=20`
-
-Formato de retorno paginado:
-
-```json
-{
-  "results": [],
-  "totalDocs": 0,
-  "page": 1,
-  "totalPages": 0,
-  "hasNext": false,
-  "hasPrev": false
-}
-```
-
-## Principais rotas da API
-
-### Públicas
-
-- `GET /`: identificação da API
-- `GET /health`: healthcheck
-- `POST /auth/signup`: cadastro
-- `POST /auth/signin`: login
-- `GET /docs`: Swagger UI
-- `GET /docs/json`: OpenAPI JSON
-
-### Protegidas
-
-- `GET /entries/en`: lista palavras com busca e paginação
-- `GET /entries/en/:word`: consulta detalhes da palavra e registra histórico
-- `POST /entries/en/:word/favorite`: adiciona favorito
-- `DELETE /entries/en/:word/unfavorite`: remove favorito
-- `GET /user/me`: perfil do usuário
-- `GET /user/me/history`: histórico paginado
-- `GET /user/me/favorites`: favoritos paginados
-
-## Principais páginas da web
-
-### Públicas
-
-- `GET /`: landing page
-- `GET /login`: login
-- `GET /register`: cadastro
-
-### Protegidas
-
-- `GET /home`: busca principal e histórico recente
-- `GET /dictionary`: dicionário paginado
-- `GET /favorites`: favoritos do usuário
-- `GET /word/[word]`: detalhe da palavra
-- `GET /profile`: perfil e histórico
-
-## Fluxo mínimo para validar manualmente
-
-### 1. Subir ambiente
-
-```bash
-docker compose up -d postgres redis
-docker compose --profile tools run --rm back-end-migrate
-docker compose --profile tools run --rm back-end-import
-docker compose up -d back-end front-end
-```
-
-### 2. Criar usuário
-
-Acesse `http://localhost:3000/register`.
-
-### 3. Autenticar
-
-Acesse `http://localhost:3000/login`.
-
-### 4. Buscar palavra
-
-Use a home ou acesse `http://localhost:3000/dictionary`.
-
-### 5. Consultar detalhe
-
-Abra uma palavra pela interface ou acesse `http://localhost:3000/word/fire`.
-
-### 6. Favoritar
-
-Clique no botão de favorito na tela de detalhe.
-
-### 7. Conferir favoritos
-
-Acesse `http://localhost:3000/favorites`.
-
-### 8. Conferir histórico
-
-Acesse `http://localhost:3000/profile`.
-
-## Testes e qualidade
-
-### Back-end
-
-```bash
-cd back-end
-npm run lint
-npm run test
-npm run test:e2e
-npm run build
-```
-
-### Front-end
-
-```bash
-cd front-end
-npm run lint
-npm run test
-npm run format
-npm run build
-```
-
-## Documentação detalhada
-
-- Back-end: `back-end/README.md`
-- Front-end: `front-end/README.md`
-- Docker Compose: `docker-compose.yml`
-
-## Observações
-
-- A lista de palavras precisa ser importada antes da aplicação ter dados úteis no dicionário
-- Os detalhes das palavras dependem da Free Dictionary API
-- O Redis melhora cache, mas a API documenta comportamento de fallback no README do back-end
-- O Compose usa `JWT_SECRET=change-me-in-compose` como fallback, portanto defina um segredo real fora de desenvolvimento
-- O front-end em container usa `API_BASE_URL=http://back-end:3001`
+| Tipo | Valor |
+| --- | --- |
+| Deploy do Front-end | Não configurado |
+| Deploy do Back-end | Não configurado |
+| Documentação detalhada da API | `back-end/README.md` |
+| Documentação detalhada da Web | `front-end/README.md` |

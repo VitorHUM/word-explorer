@@ -1,58 +1,125 @@
 # Word Explorer API
 
-API backend em NestJS para autenticação de usuários e consulta de palavras em inglês. O front-end consome apenas esta API. Os detalhes de palavras são obtidos via proxy da Free Dictionary API, com persistência local de histórico, favoritos e lista de palavras em PostgreSQL, além de cache em Redis.
+> API REST em NestJS para autenticação, consulta de palavras, histórico, favoritos, paginação, cache e documentação Swagger.
 
-## Objetivo
+## Descrição
 
-- Autenticar usuários com JWT
-- Listar palavras importadas localmente
-- Buscar palavras com paginação
-- Consultar detalhes de uma palavra via proxy externo
-- Registrar histórico automaticamente
-- Gerenciar favoritos
-- Retornar headers de cache e tempo de resposta
+O back-end centraliza:
 
-## Stack
+- autenticação JWT
+- persistência em PostgreSQL
+- cache em Redis
+- importação da base local de palavras
+- consulta de detalhes via Free Dictionary API
+- documentação OpenAPI via Swagger
 
-- Node.js
-- TypeScript
-- NestJS
-- Prisma
-- PostgreSQL
-- Redis
-- Swagger
-- Jest
-- Docker
+## Funcionalidades
+
+| Funcionalidade | Status | Observação |
+| --- | --- | --- |
+| Cadastro de usuário | Implementado | Retorna JWT no formato `Bearer ...` |
+| Login | Implementado | Valida credenciais e retorna JWT |
+| Perfil autenticado | Implementado | `GET /user/me` |
+| Listagem do dicionário | Implementado | Busca por prefixo com paginação |
+| Detalhes da palavra | Implementado | Usa cache e integração externa |
+| Histórico | Implementado | Registrado ao consultar detalhes |
+| Favoritos | Implementado | Favoritar e desfavoritar |
+| Healthcheck | Implementado | `GET /health` |
+| Swagger | Implementado | `GET /docs` |
+| Deploy público | Não configurado | Nenhum link público informado |
 
 ## Arquitetura
 
-- `Controller -> Service -> Repository`
-- DTOs de entrada com `class-validator`
-- DTOs de saída com `class-transformer`
-- `JwtAuthGuard` para autenticação
-- `HttpExceptionFilter` para erro humanizado
-- `CacheableResponseInterceptor` para `x-cache`
-- `ResponseTimeInterceptor` para `x-response-time`
+```text
+Controller -> Service -> Repository -> PostgreSQL
+                    \-> CacheService -> Redis
+                    \-> FreeDictionaryClient -> Free Dictionary API
+```
+
+### Componentes principais
+
+| Componente | Papel |
+| --- | --- |
+| `AuthController` | cadastro e login |
+| `EntriesController` | listagem, detalhes e favoritos |
+| `UserController` | perfil, histórico e favoritos do usuário |
+| `CacheService` | abstração de Redis com fallback seguro |
+| `ResponseTimeInterceptor` | adiciona `x-response-time` |
+| `CacheableResponseInterceptor` | adiciona `x-cache` nas rotas cacheáveis |
+| `HttpExceptionFilter` | padroniza erros em `{ "message": "..." }` |
+
+## Estrutura de Pastas
+
+```text
+back-end/
+├── prisma/
+│   ├── migrations/
+│   └── schema.prisma
+├── src/
+│   ├── app/
+│   ├── auth/
+│   ├── common/
+│   ├── dictionary/
+│   ├── entries/
+│   ├── infrastructure/
+│   └── user/
+├── test/
+├── Dockerfile
+└── README.md
+```
+
+## Tecnologias
+
+| Categoria | Tecnologias |
+| --- | --- |
+| Runtime | Node.js, TypeScript |
+| Framework | NestJS |
+| Banco | PostgreSQL |
+| ORM | Prisma |
+| Cache | Redis |
+| Documentação | Swagger / OpenAPI |
+| Testes | Jest, Supertest |
+| Infra | Docker, Docker Compose |
 
 ## Requisitos
 
-- Node.js 20+
-- npm 10+
-- PostgreSQL 14+
-- Redis 7+
-- Docker e Docker Compose opcionais
+| Item | Versão sugerida |
+| --- | --- |
+| Node.js | 20+ |
+| npm | 10+ |
+| PostgreSQL | 14+ |
+| Redis | 7+ |
+| Docker | opcional |
 
-## Estrutura útil
+## Configuração do Ambiente
 
-- `src/auth`: autenticação e JWT
-- `src/entries`: listagem, detalhes e favoritos
-- `src/user`: perfil, histórico e favoritos do usuário
-- `src/infrastructure/database/repositories`: acesso a dados
-- `src/dictionary/dictionary-importer.ts`: importador de palavras
+### Arquivo `.env`
 
-## Variáveis de ambiente
+```bash
+cp .env.example .env
+```
 
-Crie o arquivo `.env` a partir de `.env.example`.
+## Variáveis de Ambiente
+
+| Variável | Exemplo | Uso |
+| --- | --- | --- |
+| `NODE_ENV` | `development` | ambiente da aplicação |
+| `PORT` | `3001` | porta HTTP |
+| `DATABASE_URL` | `postgresql://...` | conexão com PostgreSQL |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | origens permitidas |
+| `REDIS_HOST` | `127.0.0.1` | host do Redis |
+| `REDIS_PORT` | `6379` | porta do Redis |
+| `REDIS_TTL_SECONDS` | `3600` | TTL padrão do cache |
+| `THROTTLE_TTL_MS` | `60000` | janela do rate limit global |
+| `THROTTLE_LIMIT` | `300` | limite global |
+| `AUTH_THROTTLE_TTL_MS` | `60000` | janela do rate limit de auth |
+| `AUTH_THROTTLE_LIMIT` | `30` | limite de auth |
+| `JWT_SECRET` | `change-me` | segredo do token |
+| `JWT_EXPIRES_IN` | `60m` | duração do token |
+| `DICTIONARY_API_URL` | `https://api.dictionaryapi.dev/api/v2` | API externa de detalhes |
+| `DICTIONARY_CACHE_TTL_SECONDS` | `3600` | TTL do cache de detalhes |
+
+### Exemplo completo
 
 ```env
 NODE_ENV=development
@@ -72,106 +139,79 @@ DICTIONARY_API_URL=https://api.dictionaryapi.dev/api/v2
 DICTIONARY_CACHE_TTL_SECONDS=3600
 ```
 
-## Como rodar localmente
+## Execução Local
 
-### 1. Instalar dependências
+<details>
+<summary><strong>Passo a passo</strong></summary>
 
-```bash
-npm install
-```
-
-### 2. Criar o `.env`
-
-```bash
-cp .env.example .env
-```
-
-### 3. Subir PostgreSQL e Redis
-
-Se você já possui PostgreSQL e Redis locais, pule esta etapa. Caso contrário, use Docker:
+### 1. Subir PostgreSQL e Redis
 
 ```bash
 docker compose up -d postgres redis
 ```
 
-### 4. Gerar o client do Prisma
+### 2. Instalar dependências
+
+```bash
+npm install
+```
+
+### 3. Gerar o client do Prisma
 
 ```bash
 npm run prisma:generate
 ```
 
-### 5. Aplicar migrations
+### 4. Aplicar migrations
 
 ```bash
 npm run prisma:migrate:deploy
 ```
 
-Para ambiente de desenvolvimento, se quiser criar novas migrations:
-
-```bash
-npm run prisma:migrate:dev
-```
-
-### 6. Importar a lista de palavras
+### 5. Importar a base de palavras
 
 ```bash
 npm run dictionary:import
 ```
 
-Esse passo baixa `words_dictionary.json`, normaliza as palavras, insere em lotes no PostgreSQL e invalida o cache de listagem.
-
-### 7. Iniciar a API
+### 6. Iniciar a API
 
 ```bash
 npm run start:dev
 ```
 
-### 8. Acessar recursos auxiliares
+</details>
 
-- API: `http://localhost:3001`
-- Healthcheck: `http://localhost:3001/health`
-- Swagger UI: `http://localhost:3001/docs`
-- OpenAPI JSON: `http://localhost:3001/docs/json`
+### URLs locais
 
-## Como rodar com Docker Compose
+| Recurso | URL |
+| --- | --- |
+| API | `http://localhost:3001` |
+| Healthcheck | `http://localhost:3001/health` |
+| Swagger UI | `http://localhost:3001/docs` |
+| OpenAPI JSON | `http://localhost:3001/docs/json` |
 
-### Subir banco, cache e API
+## Execução com Docker
+
+### Build
+
+```bash
+docker compose build back-end
+```
+
+### Subir apenas a API
 
 ```bash
 docker compose up -d postgres redis back-end
 ```
 
-### Aplicar migrations pelo container auxiliar
-
-```bash
-docker compose --profile tools run --rm back-end-migrate
-```
-
-### Importar palavras pelo container auxiliar
-
-```bash
-docker compose --profile tools run --rm back-end-import
-```
-
-### Ver logs da API
+### Logs
 
 ```bash
 docker compose logs -f back-end
 ```
 
-### Derrubar containers
-
-```bash
-docker compose down
-```
-
-### Derrubar containers e volumes
-
-```bash
-docker compose down -v
-```
-
-## Fluxo recomendado para ambiente limpo com Docker
+### Ambiente completo recomendado
 
 ```bash
 docker compose up -d postgres redis
@@ -180,406 +220,142 @@ docker compose --profile tools run --rm back-end-import
 docker compose up -d back-end
 ```
 
-## Scripts úteis
+## Migrations
 
-```bash
-npm run start:dev
-npm run build
-npm run start:prod
-npm run lint
-npm run test
-npm run test:e2e
-npm run prisma:generate
-npm run prisma:migrate:deploy
-npm run prisma:studio
-npm run dictionary:import
-```
+| Cenário | Comando |
+| --- | --- |
+| Local | `npm run prisma:migrate:deploy` |
+| Criar nova migration | `npm run prisma:migrate:dev` |
+| Docker | `docker compose --profile tools run --rm back-end-migrate` |
 
-## Autenticação
+## Importação do Dicionário
 
-As rotas protegidas exigem header:
+| Cenário | Comando |
+| --- | --- |
+| Local | `npm run dictionary:import` |
+| Docker | `docker compose --profile tools run --rm back-end-import` |
 
-```http
-Authorization: Bearer <jwt>
-```
+### O importador faz
 
-O token é retornado por `signup` e `signin` já com o prefixo `Bearer ` no campo `token`.
+- baixa `words_dictionary.json` do projeto `dwyl/english-words`
+- aceita `application/json` e `text/plain`
+- normaliza palavras para minúsculas
+- ignora entradas vazias e palavras com espaço
+- insere em lotes de `5000`
+- invalida cache de listagem `dictionary:list:en:*` quando necessário
 
-## Headers de resposta
+## Testes
 
-Todas as respostas retornam:
+### Comandos testados
 
-- `x-response-time`: tempo de processamento em milissegundos
+| Tipo | Comando |
+| --- | --- |
+| Instalação limpa | `npm ci` |
+| Build | `npm run build` |
+| Build Docker | `docker compose build back-end` |
 
-As rotas cacheáveis também retornam:
+### Outros comandos úteis
 
-- `x-cache: HIT`: resposta veio do cache
-- `x-cache: MISS`: resposta foi buscada na origem
+| Tipo | Comando |
+| --- | --- |
+| Lint | `npm run lint` |
+| Unitários | `npm run test` |
+| E2E | `npm run test:e2e` |
 
-## Segurança aplicada
+Observação:
 
-- `helmet` para hardening de headers HTTP
-- CORS restritivo via `CORS_ALLOWED_ORIGINS`
-- throttling global
-- throttling mais restritivo para `signup` e `signin`
-- JWT com segredo externo ao código
-- validação de body, query e params com `ValidationPipe`
-- erros humanizados no formato `{ "message": "..." }`
+- os testes E2E exigem ambiente compatível com banco e demais dependências
 
-## Formato de erro
+## Swagger
 
-Exemplo:
+| Recurso | URL |
+| --- | --- |
+| Swagger UI | `http://localhost:3001/docs` |
+| OpenAPI JSON | `http://localhost:3001/docs/json` |
 
-```json
-{ "message": "Error message" }
-```
+O Swagger documenta:
 
-## Paginação
+- autenticação bearer
+- exemplos de erro
+- headers `x-response-time`
+- headers `x-cache` nas rotas cacheáveis
 
-O projeto usa paginação por `page` e `limit`.
+## Endpoints
 
-Parâmetros padrão:
+### Aplicação
 
-- `page=1`
-- `limit=20`
+| Método | Rota | Descrição |
+| --- | --- | --- |
+| `GET` | `/` | mensagem raiz da API |
+| `GET` | `/health` | healthcheck |
 
-Limites:
+### Autenticação
 
-- `page >= 1`
-- `1 <= limit <= 100`
+| Método | Rota | Auth |
+| --- | --- | --- |
+| `POST` | `/auth/signup` | não |
+| `POST` | `/auth/signin` | não |
 
-Formato de retorno paginado:
+### Entradas
 
-```json
-{
-  "results": [],
-  "totalDocs": 0,
-  "page": 1,
-  "totalPages": 0,
-  "hasNext": false,
-  "hasPrev": false
-}
-```
+| Método | Rota | Auth |
+| --- | --- | --- |
+| `GET` | `/entries/en` | sim |
+| `GET` | `/entries/en/:word` | sim |
+| `POST` | `/entries/en/:word/favorite` | sim |
+| `DELETE` | `/entries/en/:word/unfavorite` | sim |
 
-## Rotas
+### Usuário
 
-### `GET /`
+| Método | Rota | Auth |
+| --- | --- | --- |
+| `GET` | `/user/me` | sim |
+| `GET` | `/user/me/history` | sim |
+| `GET` | `/user/me/favorites` | sim |
 
-Retorna a identificação da API.
+## Cache
 
-Response `200`:
+### Onde há cache
 
-```json
-{ "message": "English Dictionary" }
-```
+| Rota | Cache |
+| --- | --- |
+| `GET /entries/en` | Redis |
+| `GET /entries/en/:word` | Redis |
 
-### `POST /auth/signup`
+### Comportamento
 
-Cria um usuário.
+- se o Redis responder normalmente, a API usa `HIT` ou `MISS`
+- se o Redis estiver indisponível, a API continua funcionando
+- nesse fallback, as rotas cacheáveis seguem respondendo, mas sem reutilização efetiva de cache
 
-Body:
+## Headers `x-cache` e `x-response-time`
 
-```json
-{
-  "name": "User 1",
-  "email": "example@email.com",
-  "password": "test"
-}
-```
+| Header | Onde | Significado |
+| --- | --- | --- |
+| `x-response-time` | todas as respostas | tempo de processamento em ms |
+| `x-cache: HIT` | rotas cacheáveis | resposta vinda do Redis |
+| `x-cache: MISS` | rotas cacheáveis | resposta vinda do PostgreSQL ou serviço externo |
 
-Response `200`:
+## Decisões Técnicas
 
-```json
-{
-  "id": "f3a106sa65dv53ab2c1380acef",
-  "name": "User 1",
-  "token": "Bearer JWT.Token"
-}
-```
+- `Controller -> Service -> Repository` para separar responsabilidades
+- Prisma para acesso a dados e migrations
+- Redis opcional em runtime, sem derrubar a API em caso de falha
+- importação local do dicionário para tornar a listagem independente da API externa
+- detalhes ainda usam fonte externa porque a base importada não traz significados
+- `ValidationPipe` global com mensagens padronizadas
+- `helmet` e CORS restritivo para endurecimento básico
 
-Erros comuns:
+## Limitações
 
-- `400` body inválido
-- `409` e-mail já cadastrado
-- `429` muitas tentativas
+- detalhes de palavras dependem da Free Dictionary API
+- sem importação prévia, a listagem local não terá conteúdo útil
+- não há deploy público documentado
+- não há endpoint dedicado para status individual de favorito no Back-end; essa verificação é derivada no Front-end
 
-### `POST /auth/signin`
+## Links de Deploy
 
-Autentica um usuário existente.
-
-Body:
-
-```json
-{
-  "email": "example@email.com",
-  "password": "test"
-}
-```
-
-Response `200`:
-
-```json
-{
-  "id": "f3a106sa65dv53ab2c1380acef",
-  "name": "User 1",
-  "token": "Bearer JWT.Token"
-}
-```
-
-Erros comuns:
-
-- `400` body inválido
-- `401` credenciais inválidas
-- `429` muitas tentativas
-
-### `GET /entries/en`
-
-Lista palavras do dicionário local com paginação e busca por prefixo.
-
-Query params:
-
-- `search`: opcional, busca por prefixo case-insensitive
-- `page`: opcional, padrão `1`
-- `limit`: opcional, padrão `20`, máximo `100`
-
-Exemplo:
-
-```http
-GET /entries/en?search=fire&limit=4&page=1
-```
-
-Response `200`:
-
-```json
-{
-  "results": ["fire", "firefly", "fireplace", "fireman"],
-  "totalDocs": 20,
-  "page": 1,
-  "totalPages": 5,
-  "hasNext": true,
-  "hasPrev": false
-}
-```
-
-Headers relevantes:
-
-- `x-cache`
-- `x-response-time`
-
-Erros comuns:
-
-- `400` query inválida
-- `401` não autenticado
-
-### `GET /entries/en/:word`
-
-Consulta o detalhe da palavra e registra histórico automaticamente para o usuário autenticado.
-
-Path params:
-
-- `word`: palavra em inglês
-
-Exemplo:
-
-```http
-GET /entries/en/fire
-```
-
-Response `200`:
-
-```json
-{
-  "word": "fire",
-  "phonetics": [
-    {
-      "text": "/faɪə/",
-      "audio": "https://api.dictionaryapi.dev/media/pronunciations/en/fire-us.mp3"
-    }
-  ],
-  "meanings": [
-    {
-      "partOfSpeech": "noun",
-      "definitions": [
-        {
-          "definition": "Combustion or burning.",
-          "example": "The fire was warm.",
-          "synonyms": ["blaze"],
-          "antonyms": ["ice"]
-        }
-      ],
-      "synonyms": ["flame"],
-      "antonyms": ["water"]
-    }
-  ],
-  "sourceUrls": ["https://en.wiktionary.org/wiki/fire"]
-}
-```
-
-Erros comuns:
-
-- `400` param inválido
-- `401` não autenticado
-- `404` palavra não encontrada localmente ou no dicionário externo
-
-### `POST /entries/en/:word/favorite`
-
-Adiciona a palavra aos favoritos do usuário autenticado.
-
-Path params:
-
-- `word`: palavra em inglês
-
-Response `204`
-
-Sem body.
-
-Erros comuns:
-
-- `400` param inválido
-- `401` não autenticado
-- `404` palavra não encontrada localmente
-
-### `DELETE /entries/en/:word/unfavorite`
-
-Remove a palavra dos favoritos do usuário autenticado.
-
-Path params:
-
-- `word`: palavra em inglês
-
-Response `204`
-
-Sem body.
-
-Erros comuns:
-
-- `400` param inválido
-- `401` não autenticado
-- `404` palavra não encontrada localmente
-
-### `GET /user/me`
-
-Retorna o perfil do usuário autenticado.
-
-Response `200`:
-
-```json
-{
-  "id": "f3a106sa65dv53ab2c1380acef",
-  "name": "User 1",
-  "email": "example@email.com",
-  "createdAt": "2024-05-05T19:28:13.531Z",
-  "updatedAt": "2024-05-05T19:28:13.531Z"
-}
-```
-
-### `GET /user/me/history`
-
-Retorna histórico paginado do usuário autenticado.
-
-Query params:
-
-- `page`
-- `limit`
-
-Response `200`:
-
-```json
-{
-  "results": [
-    { "word": "fire", "added": "2024-05-05T19:28:13.531Z" },
-    { "word": "firefly", "added": "2024-05-05T19:28:44.021Z" }
-  ],
-  "totalDocs": 20,
-  "page": 2,
-  "totalPages": 5,
-  "hasNext": true,
-  "hasPrev": true
-}
-```
-
-### `GET /user/me/favorites`
-
-Retorna favoritos paginados do usuário autenticado.
-
-Query params:
-
-- `page`
-- `limit`
-
-Response `200`:
-
-```json
-{
-  "results": [
-    { "word": "fire", "added": "2024-05-05T19:30:23.928Z" },
-    { "word": "firefly", "added": "2024-05-05T19:30:24.088Z" }
-  ],
-  "totalDocs": 20,
-  "page": 2,
-  "totalPages": 5,
-  "hasNext": true,
-  "hasPrev": true
-}
-```
-
-## Fluxo mínimo para validar manualmente
-
-### 1. Criar usuário
-
-```bash
-curl -X POST http://localhost:3001/auth/signup \
-  -H "Content-Type: application/json" \
-  -d '{"name":"User 1","email":"user1@example.com","password":"test"}'
-```
-
-### 2. Autenticar
-
-```bash
-curl -X POST http://localhost:3001/auth/signin \
-  -H "Content-Type: application/json" \
-  -d '{"email":"user1@example.com","password":"test"}'
-```
-
-### 3. Listar palavras
-
-```bash
-curl "http://localhost:3001/entries/en?search=fire&limit=4" \
-  -H "Authorization: Bearer <jwt>"
-```
-
-### 4. Consultar detalhe
-
-```bash
-curl "http://localhost:3001/entries/en/fire" \
-  -H "Authorization: Bearer <jwt>"
-```
-
-### 5. Favoritar
-
-```bash
-curl -X POST "http://localhost:3001/entries/en/fire/favorite" \
-  -H "Authorization: Bearer <jwt>"
-```
-
-### 6. Consultar histórico
-
-```bash
-curl "http://localhost:3001/user/me/history?page=1&limit=20" \
-  -H "Authorization: Bearer <jwt>"
-```
-
-## Testes e qualidade
-
-```bash
-npm run lint
-npm run test
-npm run test:e2e
-npm run build
-```
-
-## Observações
-
-- A lista de palavras depende da importação do arquivo externo
-- A rota de detalhes depende da Free Dictionary API
-- A aplicação funciona sem Redis, mas nesse cenário as respostas cacheáveis retornam `x-cache: MISS`
+| Tipo | Valor |
+| --- | --- |
+| API pública | Não configurada |
+| Swagger público | Não configurado |
