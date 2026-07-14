@@ -2,6 +2,8 @@
 
 > Plataforma para explorar palavras em inglês com histórico e favoritos.
 
+<img width="1600" height="1037" alt="word_explorer" src="https://github.com/user-attachments/assets/82238bc8-a699-40e9-bfab-9ca04b17ff48" />
+
 ## Visão Geral
 
 O projeto é composto por:
