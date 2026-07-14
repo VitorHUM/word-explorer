@@ -1,20 +1,20 @@
 "use client";
 
-import { FavoriteButton } from "@/components/shared/favorite-button";
 import { MotionFade } from "@/components/shared/motion-fade";
 import { EmptyState, ErrorState } from "@/components/shared/state-panels";
+import { WordCard } from "@/components/shared/word-card";
 import { WordSearchSkeleton } from "@/components/shared/word-search-skeleton";
 import { Input } from "@/components/ui/input";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useDictionaryWords, useRandomHomeWords } from "@/hooks/use-words";
-import { Search } from "lucide-react";
+import { Loader2, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export function WordSearchPanel() {
   const router = useRouter();
   const [search, setSearch] = useState("");
-  const debouncedSearch = useDebouncedValue(search, 700);
+  const debouncedSearch = useDebouncedValue(search, 600);
   const randomWordsQuery = useRandomHomeWords(8);
   const searchWordsQuery = useDictionaryWords(
     debouncedSearch,
@@ -24,6 +24,8 @@ export function WordSearchPanel() {
   );
   const wordsQuery = debouncedSearch ? searchWordsQuery : randomWordsQuery;
   const words = wordsQuery.data?.results ?? [];
+  const showLoadingIndicator =
+    Boolean(debouncedSearch) && searchWordsQuery.isFetching;
 
   return (
     <MotionFade>
@@ -37,11 +39,29 @@ export function WordSearchPanel() {
             </p>
           </div>
         </div>
-        <Input
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Ex.: fire"
-          value={search}
-        />
+        <div className="relative">
+          <Input
+            className="pr-16"
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Ex.: fire"
+            value={search}
+          />
+          {showLoadingIndicator ? (
+            <span className="pointer-events-none absolute inset-y-0 right-8 flex items-center">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            </span>
+          ) : null}
+          {search ? (
+            <button
+              aria-label="Limpar busca"
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted transition-colors hover:text-text"
+              onClick={() => setSearch("")}
+              type="button"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
         <div className="mt-3 flex flex-wrap gap-4 text-sm text-muted">
           {debouncedSearch ? null : (
             <span>
@@ -86,24 +106,15 @@ export function WordSearchPanel() {
             />
           ) : null}
           {!wordsQuery.isLoading && !wordsQuery.isError && words.length > 0 ? (
-            <div className="space-y-3">
+            <div
+              className={`space-y-3 transition-opacity ${wordsQuery.isFetching ? "opacity-60" : "opacity-100"}`}
+            >
               {words.map((word) => (
-                <div
-                  className="flex items-center justify-between rounded-2xl border border-border bg-surface px-4 py-3 hover:bg-surface-soft"
+                <WordCard
                   key={word}
-                >
-                  <button
-                    className="flex-1 text-left"
-                    onClick={() => router.push(`/word/${word}`)}
-                    type="button"
-                  >
-                    <span className="font-accent text-primary">{word}</span>
-                    <span className="ml-3 text-sm text-muted">
-                      Ver detalhes
-                    </span>
-                  </button>
-                  <FavoriteButton word={word} />
-                </div>
+                  onPreview={() => router.push(`/word/${word}`)}
+                  word={word}
+                />
               ))}
             </div>
           ) : null}

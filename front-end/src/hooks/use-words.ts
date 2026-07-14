@@ -76,10 +76,10 @@ export function useWordDetails(word: string) {
   });
 }
 
-export function useHistory() {
+export function useHistory(page = 1, limit = DEFAULT_PAGE_SIZE) {
   return useQuery({
-    queryKey: queryKeys.history,
-    queryFn: () => getHistory(),
+    queryKey: [...queryKeys.history, page, limit],
+    queryFn: () => getHistory(page, limit),
     staleTime: 15_000,
   });
 }

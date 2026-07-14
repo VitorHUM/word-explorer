@@ -9,6 +9,7 @@ type WordCardProps = {
   action?: React.ReactNode;
   onPreview?: () => void;
   subtitle?: string;
+  href?: string;
 };
 
 export function WordCard({
@@ -17,18 +18,28 @@ export function WordCard({
   action,
   onPreview,
   subtitle,
+  href,
 }: WordCardProps) {
+  const destination = href ?? `/word/${word}`;
+
   return (
     <motion.div
       animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+      className="relative flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4 shadow-sm transition-colors hover:bg-surface-soft sm:flex-row sm:items-center sm:justify-between"
       initial={{ opacity: 0, y: 8 }}
       transition={{ duration: 0.2 }}
     >
-      <div>
+      {!onPreview ? (
+        <Link
+          aria-label={`Abrir detalhes de ${word}`}
+          className="absolute inset-0 rounded-2xl"
+          href={destination}
+        />
+      ) : null}
+      <div className="relative z-10">
         <Link
           className="font-primary text-lg text-primary hover:text-primary-strong"
-          href={`/word/${word}`}
+          href={destination}
         >
           {word}
         </Link>
@@ -41,7 +52,7 @@ export function WordCard({
           <p className="font-secondary text-sm text-muted">{subtitle}</p>
         ) : null}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="relative z-10 flex items-center gap-2">
         {onPreview ? (
           <Button onClick={onPreview} size="sm" variant="secondary">
             Ver detalhes

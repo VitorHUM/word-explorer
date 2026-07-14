@@ -1,6 +1,5 @@
 "use client";
 
-import { FavoriteButton } from "@/components/shared/favorite-button";
 import { LoadingList } from "@/components/shared/loading-list";
 import { MotionFade } from "@/components/shared/motion-fade";
 import { PageSizeSelect } from "@/components/shared/page-size-select";
@@ -17,7 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useDictionaryWords } from "@/hooks/use-words";
-import { Search } from "lucide-react";
+import { Loader2, Search, X } from "lucide-react";
 import { useState } from "react";
 
 export default function DictionaryPage() {
@@ -25,7 +24,7 @@ export default function DictionaryPage() {
   const [limit, setLimit] = useState(20);
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
-  const debouncedFilter = useDebouncedValue(filter, 700);
+  const debouncedFilter = useDebouncedValue(filter, 600);
   const dictionaryQuery = useDictionaryWords(debouncedFilter, page, limit);
   const words = dictionaryQuery.data?.results ?? [];
   const currentPage = dictionaryQuery.data?.page ?? page;
@@ -33,23 +32,28 @@ export default function DictionaryPage() {
   const hasPrev = dictionaryQuery.data?.hasPrev ?? false;
   const totalPages = dictionaryQuery.data?.totalPages ?? 1;
   const totalDocs = dictionaryQuery.data?.totalDocs ?? 0;
+  const showLoadingIndicator =
+    Boolean(debouncedFilter) && dictionaryQuery.isFetching;
 
   return (
     <MotionFade>
       <section className="space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
           <div>
             <h1 className="font-primary text-3xl">Dicionário completo</h1>
             <p className="font-secondary text-sm text-muted">
               Navegue pelo dicionário.
             </p>
           </div>
-          <div className="w-full sm:max-w-sm">
-            <div className="mb-2 flex items-center gap-2 text-sm text-muted">
-              <Search className="h-4 w-4 text-primary" />
-              <label htmlFor="filter">Buscar no dicionário</label>
-            </div>
+        </div>
+        <div className="w-full">
+          <div className="mb-2 flex items-center gap-2 text-sm text-muted">
+            <Search className="h-4 w-4 text-primary" />
+            <label htmlFor="filter">Buscar no dicionário</label>
+          </div>
+          <div className="relative">
             <Input
+              className="pr-16"
               id="filter"
               onChange={(event) => {
                 setPage(1);
@@ -58,6 +62,24 @@ export default function DictionaryPage() {
               placeholder="Ex.: fire"
               value={filter}
             />
+            {showLoadingIndicator ? (
+              <span className="pointer-events-none absolute inset-y-0 right-8 flex items-center">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              </span>
+            ) : null}
+            {filter ? (
+              <button
+                aria-label="Limpar busca"
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted transition-colors hover:text-text"
+                onClick={() => {
+                  setPage(1);
+                  setFilter("");
+                }}
+                type="button"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
           </div>
         </div>
         <PageSizeSelect
@@ -86,10 +108,11 @@ export default function DictionaryPage() {
         {!dictionaryQuery.isLoading &&
         !dictionaryQuery.isError &&
         words.length > 0 ? (
-          <div className="space-y-4">
+          <div
+            className={`space-y-4 transition-opacity ${dictionaryQuery.isFetching ? "opacity-60" : "opacity-100"}`}
+          >
             {words.map((word) => (
               <WordCard
-                action={<FavoriteButton word={word} />}
                 key={word}
                 onPreview={() => setSelectedWord(word)}
                 word={word}

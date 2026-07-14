@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingList } from "@/components/shared/loading-list";
 import { MotionFade } from "@/components/shared/motion-fade";
 import { ErrorState } from "@/components/shared/state-panels";
 import { WordCard } from "@/components/shared/word-card";
@@ -7,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/hooks/use-auth";
 import { useHistory } from "@/hooks/use-words";
 import { formatDate } from "@/lib/utils";
+import { LoaderCircle } from "lucide-react";
 
 export default function ProfilePage() {
   const sessionQuery = useSession();
@@ -60,21 +62,23 @@ export default function ProfilePage() {
 
         <div className="space-y-4 rounded-3xl border border-border bg-surface p-6 shadow-sm">
           <div>
-            <h2 className="font-primary text-2xl text-text">
-              Histórico de palavras
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="font-primary text-2xl text-text">
+                Histórico de palavras
+              </h2>
+              {historyQuery.isFetching && !historyQuery.isLoading ? (
+                <LoaderCircle className="h-4 w-4 animate-spin text-primary" />
+              ) : null}
+            </div>
             <p className="text-sm text-muted">
-              As últimas palavras consultadas na sua conta.
+              Todas palavras visualizadas.
+              {!historyQuery.isLoading && !historyQuery.isError
+                ? ` Total: ${(historyQuery.data?.totalDocs ?? 0).toLocaleString("pt-BR")}.`
+                : ""}
             </p>
           </div>
 
-          {historyQuery.isLoading ? (
-            <div className="space-y-3">
-              <Skeleton className="h-16 w-full" />
-              <Skeleton className="h-16 w-full" />
-              <Skeleton className="h-16 w-full" />
-            </div>
-          ) : null}
+          {historyQuery.isLoading ? <LoadingList /> : null}
 
           {historyQuery.isError ? (
             <ErrorState
@@ -95,7 +99,9 @@ export default function ProfilePage() {
           {!historyQuery.isLoading &&
           !historyQuery.isError &&
           (historyQuery.data?.results.length ?? 0) > 0 ? (
-            <div className="space-y-3">
+            <div
+              className={`space-y-3 transition-opacity ${historyQuery.isFetching ? "opacity-60" : "opacity-100"}`}
+            >
               {historyQuery.data?.results.map((item) => (
                 <WordCard
                   added={item.added}

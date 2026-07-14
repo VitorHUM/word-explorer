@@ -4,22 +4,29 @@ import { LoadingList } from "@/components/shared/loading-list";
 import { MotionFade } from "@/components/shared/motion-fade";
 import { EmptyState, ErrorState } from "@/components/shared/state-panels";
 import { WordCard } from "@/components/shared/word-card";
+import { Button } from "@/components/ui/button";
 import { useHistory } from "@/hooks/use-words";
+import Link from "next/link";
 
 export function HomeHistorySection() {
-  const historyQuery = useHistory();
+  const historyQuery = useHistory(1, 7);
   const history = historyQuery.data?.results ?? [];
 
   return (
     <MotionFade delay={0.08}>
       <section className="rounded-3xl border border-border bg-surface p-6 shadow-sm">
-        <div className="mb-4">
-          <h2 className="font-primary text-2xl">Histórico recente</h2>
-          <p className="font-secondary text-sm text-muted">
-            Suas últimas palavras pesquisadas.
-          </p>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="font-primary text-2xl">Histórico recente</h2>
+            <p className="font-secondary text-sm text-muted">
+              Palavras visualizadas.
+            </p>
+          </div>
+          <Button asChild className="self-start" variant="outline">
+            <Link href="/profile">Histórico completo</Link>
+          </Button>
         </div>
-        {historyQuery.isLoading ? <LoadingList /> : null}
+        {historyQuery.isLoading ? <LoadingList count={7} /> : null}
         {historyQuery.isError ? (
           <ErrorState
             description={historyQuery.error.message}
