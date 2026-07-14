@@ -32,7 +32,11 @@ export async function http<T>(input: RequestInfo | URL, init?: HttpOptions) {
       message = response.statusText || message;
     }
 
-    if (response.status === 401 && init?.redirectOnUnauthorized !== false && typeof window !== "undefined") {
+    if (
+      response.status === 401 &&
+      init?.redirectOnUnauthorized !== false &&
+      typeof window !== "undefined"
+    ) {
       window.location.href = "/login";
     }
 

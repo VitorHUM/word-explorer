@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 export function PaginationControls({
   page,
@@ -22,6 +22,7 @@ export function PaginationControls({
   hasPrev: boolean;
   onPageChange: (page: number) => void;
 }) {
+  const pageInputId = useId();
   const [pageInput, setPageInput] = useState(String(page));
 
   useEffect(() => {
@@ -61,7 +62,7 @@ export function PaginationControls({
             <div className="flex items-center gap-2 rounded-xl border border-border bg-surface-soft px-3 py-1">
               <Input
                 className="h-9 w-16 sm:w-20"
-                id="page-input"
+                id={pageInputId}
                 inputMode="numeric"
                 onBlur={goToTypedPage}
                 onChange={(event) => setPageInput(event.target.value)}

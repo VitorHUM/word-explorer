@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
-import { getAuthToken } from "@/lib/auth-session";
 import { jsonError } from "@/lib/api-response";
+import { getAuthToken } from "@/lib/auth-session";
 import { BackendApiError, requestBackend } from "@/services/backend-api";
 import { profileSchema } from "@/types/api";
+import { NextResponse } from "next/server";
 
 export async function GET() {
   const token = await getAuthToken();

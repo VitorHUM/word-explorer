@@ -24,7 +24,9 @@ export async function getDictionaryWords(params: {
     searchParams.set("limit", String(params.limit));
   }
 
-  const response = await http<unknown>(`/api/entries?${searchParams.toString()}`);
+  const response = await http<unknown>(
+    `/api/entries?${searchParams.toString()}`,
+  );
   return paginatedWordsSchema.parse(response);
 }
 
@@ -34,25 +36,35 @@ export async function getRandomDictionarySeed(limit = 8) {
 }
 
 export async function getWordDetails(word: string) {
-  const response = await http<unknown>(`/api/entries/${encodeURIComponent(word)}`);
+  const response = await http<unknown>(
+    `/api/entries/${encodeURIComponent(word)}`,
+  );
   return wordDetailsSchema.parse(response);
 }
 
 export async function favoriteWord(word: string) {
-  await http(`/api/entries/${encodeURIComponent(word)}/favorite`, { method: "POST" });
+  await http(`/api/entries/${encodeURIComponent(word)}/favorite`, {
+    method: "POST",
+  });
 }
 
 export async function unfavoriteWord(word: string) {
-  await http(`/api/entries/${encodeURIComponent(word)}/favorite`, { method: "DELETE" });
+  await http(`/api/entries/${encodeURIComponent(word)}/favorite`, {
+    method: "DELETE",
+  });
 }
 
 export async function getHistory(page = 1, limit = 20) {
-  const response = await http<unknown>(`/api/user/history?page=${page}&limit=${limit}`);
+  const response = await http<unknown>(
+    `/api/user/history?page=${page}&limit=${limit}`,
+  );
   return paginatedUserWordsSchema.parse(response);
 }
 
 export async function getFavorites(page = 1, limit = 20) {
-  const response = await http<unknown>(`/api/user/favorites?page=${page}&limit=${limit}`);
+  const response = await http<unknown>(
+    `/api/user/favorites?page=${page}&limit=${limit}`,
+  );
   return paginatedUserWordsSchema.parse(response);
 }
 

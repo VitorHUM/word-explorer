@@ -1,7 +1,7 @@
 import type { SignInInput, SignUpInput } from "@/lib/validation/auth";
 import { signInSchema, signUpSchema } from "@/lib/validation/auth";
 import { http } from "@/services/http";
-import { authResponseSchema, profileSchema } from "@/types/api";
+import { authenticatedUserSchema, profileSchema } from "@/types/api";
 
 export async function signIn(payload: SignInInput) {
   const body = signInSchema.parse(payload);
@@ -11,7 +11,7 @@ export async function signIn(payload: SignInInput) {
     redirectOnUnauthorized: false,
   });
 
-  return authResponseSchema.parse(response);
+  return authenticatedUserSchema.parse(response);
 }
 
 export async function signUp(payload: SignUpInput) {
@@ -26,7 +26,7 @@ export async function signUp(payload: SignUpInput) {
     redirectOnUnauthorized: false,
   });
 
-  return authResponseSchema.parse(response);
+  return authenticatedUserSchema.parse(response);
 }
 
 export async function getSessionProfile() {

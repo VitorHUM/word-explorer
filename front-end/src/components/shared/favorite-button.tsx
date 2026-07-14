@@ -1,8 +1,8 @@
 "use client";
 
-import { Heart } from "lucide-react";
-import { useFavoriteStatus, useToggleFavorite } from "@/hooks/use-words";
 import { Button } from "@/components/ui/button";
+import { useFavoriteStatus, useToggleFavorite } from "@/hooks/use-words";
+import { Heart } from "lucide-react";
 
 export function FavoriteButton({
   word,

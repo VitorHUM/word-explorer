@@ -1,12 +1,12 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+import { useLogout, useSession } from "@/hooks/use-auth";
+import { AnimatePresence, motion } from "framer-motion";
+import { ChevronDown, LogOut, User } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, LogOut, User } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useLogout, useSession } from "@/hooks/use-auth";
 
 export function UserMenu() {
   const router = useRouter();
@@ -33,7 +33,11 @@ export function UserMenu() {
 
   return (
     <div className="relative" ref={containerRef}>
-      <Button onClick={() => setOpen((currentState) => !currentState)} size="sm" variant="outline">
+      <Button
+        onClick={() => setOpen((currentState) => !currentState)}
+        size="sm"
+        variant="outline"
+      >
         <User className="mr-2 h-4 w-4" />
         {sessionQuery.data?.name ?? "Conta"}
         <ChevronDown className="ml-2 h-4 w-4" />

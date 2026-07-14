@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import { clearAuthToken } from "@/lib/auth-session";
+import { NextResponse } from "next/server";
 
 export async function POST() {
   await clearAuthToken();

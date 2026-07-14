@@ -35,18 +35,29 @@ export function AudioPronunciationPlayer({ audioUrl }: { audioUrl: string }) {
       return;
     }
 
-    await audioElement.play();
-    setIsPlaying(true);
+    try {
+      await audioElement.play();
+      setIsPlaying(true);
+    } catch {
+      setIsPlaying(false);
+    }
   }
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-surface p-2">
       <audio
         onEnded={() => setIsPlaying(false)}
+        onPause={() => setIsPlaying(false)}
         ref={audioRef}
         src={audioUrl}
       />
-      <Button onClick={togglePlay} size="sm" type="button" variant="secondary">
+      <Button
+        aria-label={isPlaying ? "Pausar pronuncia" : "Reproduzir pronuncia"}
+        onClick={togglePlay}
+        size="sm"
+        type="button"
+        variant="secondary"
+      >
         {isPlaying ? (
           <Pause className="h-4 w-4" />
         ) : (
@@ -55,6 +66,7 @@ export function AudioPronunciationPlayer({ audioUrl }: { audioUrl: string }) {
       </Button>
       <span className="text-sm text-muted">Pronúncia</span>
       <Select
+        aria-label="Velocidade da pronuncia"
         className="w-16"
         onChange={(event) => setPlaybackRate(Number(event.target.value))}
         value={String(playbackRate)}

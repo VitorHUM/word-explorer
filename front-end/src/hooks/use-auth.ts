@@ -1,9 +1,14 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/constants";
 import type { SignInInput, SignUpInput } from "@/lib/validation/auth";
-import { getSessionProfile, logout, signIn, signUp } from "@/services/auth.service";
+import {
+  getSessionProfile,
+  logout,
+  signIn,
+  signUp,
+} from "@/services/auth.service";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export function useSession() {
   return useQuery({

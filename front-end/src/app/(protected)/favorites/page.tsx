@@ -62,7 +62,9 @@ export default function FavoritesPage() {
         {!favoritesQuery.isLoading &&
         !favoritesQuery.isError &&
         favorites.length > 0 ? (
-          <div className={`space-y-4 transition-opacity ${favoritesQuery.isFetching ? "opacity-60" : "opacity-100"}`}>
+          <div
+            className={`space-y-4 transition-opacity ${favoritesQuery.isFetching ? "opacity-60" : "opacity-100"}`}
+          >
             {favorites.map((item) => (
               <WordCard
                 action={<FavoriteButton initialIsFavorite word={item.word} />}

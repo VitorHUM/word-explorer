@@ -1,8 +1,8 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
 import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
-import { Input } from "@/components/ui/input";
 
 type FormFieldProps = {
   id: string;
@@ -11,7 +11,14 @@ type FormFieldProps = {
   hideError?: boolean;
 } & React.InputHTMLAttributes<HTMLInputElement>;
 
-export function FormField({ id, label, error, hideError = false, type, ...props }: FormFieldProps) {
+export function FormField({
+  id,
+  label,
+  error,
+  hideError = false,
+  type,
+  ...props
+}: FormFieldProps) {
   const [showPassword, setShowPassword] = useState(false);
   const isPasswordField = type === "password";
 
@@ -35,11 +42,17 @@ export function FormField({ id, label, error, hideError = false, type, ...props 
             onClick={() => setShowPassword((currentValue) => !currentValue)}
             type="button"
           >
-            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            {showPassword ? (
+              <EyeOff className="h-4 w-4" />
+            ) : (
+              <Eye className="h-4 w-4" />
+            )}
           </button>
         ) : null}
       </div>
-      {error && !hideError ? <p className="text-sm text-red-600 dark:text-red-300">{error}</p> : null}
+      {error && !hideError ? (
+        <p className="text-sm text-red-600 dark:text-red-300">{error}</p>
+      ) : null}
     </div>
   );
 }

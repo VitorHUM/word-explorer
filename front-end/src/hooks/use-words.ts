@@ -1,7 +1,5 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
 import { DEFAULT_PAGE_SIZE, queryKeys } from "@/lib/constants";
 import {
   favoriteWord,
@@ -14,6 +12,8 @@ import {
   unfavoriteWord,
 } from "@/services/words.service";
 import type { PaginatedUserWords } from "@/types/api";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 
 export function useDictionaryWords(
   search = "",
@@ -147,8 +147,12 @@ export function useToggleFavorite(word: string) {
     onMutate: async (isFavorite) => {
       const nextValue = !isFavorite;
 
-      await queryClient.cancelQueries({ queryKey: queryKeys.favoriteStatus(word) });
-      const previousStatus = queryClient.getQueryData<boolean>(queryKeys.favoriteStatus(word));
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.favoriteStatus(word),
+      });
+      const previousStatus = queryClient.getQueryData<boolean>(
+        queryKeys.favoriteStatus(word),
+      );
       const favoriteQueries = queryClient.getQueriesData<PaginatedUserWords>({
         queryKey: queryKeys.favorites,
       });
@@ -156,7 +160,10 @@ export function useToggleFavorite(word: string) {
       queryClient.setQueryData(queryKeys.favoriteStatus(word), nextValue);
 
       favoriteQueries.forEach(([key, value]) => {
-        queryClient.setQueryData(key, patchFavoriteCaches(value, word, nextValue));
+        queryClient.setQueryData(
+          key,
+          patchFavoriteCaches(value, word, nextValue),
+        );
       });
 
       return { previousStatus, favoriteQueries };
@@ -166,14 +173,19 @@ export function useToggleFavorite(word: string) {
         return;
       }
 
-      queryClient.setQueryData(queryKeys.favoriteStatus(word), context.previousStatus);
+      queryClient.setQueryData(
+        queryKeys.favoriteStatus(word),
+        context.previousStatus,
+      );
 
       context.favoriteQueries.forEach(([key, value]) => {
         queryClient.setQueryData(key, value);
       });
     },
     onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.favoriteStatus(word) });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.favoriteStatus(word),
+      });
       await queryClient.invalidateQueries({ queryKey: queryKeys.favorites });
     },
   });

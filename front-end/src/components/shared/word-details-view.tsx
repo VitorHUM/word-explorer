@@ -68,7 +68,7 @@ export function WordDetailsView({ word }: { word: string }) {
             <Button asChild variant="outline">
               <Link
                 href={`https://translate.google.com/?sl=en&tl=pt&text=${encodeURIComponent(details.word)}&op=translate`}
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 target="_blank"
               >
                 <Languages className="mr-2 h-4 w-4" />
@@ -86,7 +86,7 @@ export function WordDetailsView({ word }: { word: string }) {
             key={`${meaning.partOfSpeech}-${index}`}
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <h2 className="font-primary text-xl text-text">
+              <h2 className="font-primary text-xl font-semibold text-secondary">
                 {meaning.partOfSpeech || "Significado"}
               </h2>
               <CopyButton
@@ -96,31 +96,33 @@ export function WordDetailsView({ word }: { word: string }) {
                   .join("\n")}
               />
             </div>
-            <div className="mt-4 space-y-4">
+            <ol className="mt-4 list-decimal space-y-4 pl-5 marker:font-accent marker:text-text">
               {meaning.definitions.map((definition, definitionIndex) => (
-                <div
+                <li
                   className="space-y-2"
                   key={`${definition.definition}-${definitionIndex}`}
                 >
-                  <p className="font-text text-base">{definition.definition}</p>
+                  <p className="pl-1 font-text text-base">
+                    {definition.definition}
+                  </p>
                   {definition.example ? (
-                    <p className="text-sm italic text-muted">
+                    <p className="pl-1 text-sm italic text-muted">
                       Example: {definition.example}
                     </p>
                   ) : null}
                   {definition.synonyms.length > 0 ? (
-                    <p className="text-sm text-muted">
+                    <p className="pl-1 text-sm text-muted">
                       Synonyms: {definition.synonyms.join(", ")}
                     </p>
                   ) : null}
                   {definition.antonyms.length > 0 ? (
-                    <p className="text-sm text-muted">
+                    <p className="pl-1 text-sm text-muted">
                       Antonyms: {definition.antonyms.join(", ")}
                     </p>
                   ) : null}
-                </div>
+                </li>
               ))}
-            </div>
+            </ol>
           </article>
         ))}
       </div>
@@ -133,7 +135,7 @@ export function WordDetailsView({ word }: { word: string }) {
                 <a
                   className="text-sm text-primary underline"
                   href={sourceUrl}
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   target="_blank"
                 >
                   {sourceUrl}

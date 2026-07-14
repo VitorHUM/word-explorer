@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     );
 
     await setAuthToken(response.token);
-    return NextResponse.json(response);
+    return NextResponse.json({ id: response.id, name: response.name });
   } catch (error) {
     if (error instanceof BackendApiError) {
       return jsonError(error.message, error.status);

@@ -1,11 +1,13 @@
-import { NextResponse } from "next/server";
 import { jsonError } from "@/lib/api-response";
 import { BackendApiError, requestBackend } from "@/services/backend-api";
+import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
-    const response = await requestBackend(`/user/me/history?${url.searchParams.toString()}`);
+    const response = await requestBackend(
+      `/user/me/history?${url.searchParams.toString()}`,
+    );
 
     return NextResponse.json(response);
   } catch (error) {

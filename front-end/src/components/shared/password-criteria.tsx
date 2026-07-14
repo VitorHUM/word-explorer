@@ -31,7 +31,11 @@ export function PasswordCriteria({
 
           return (
             <li className="flex items-center gap-2" key={rule.label}>
-              {isValid ? <Check className="h-4 w-4 text-secondary" /> : <X className="h-4 w-4 text-red-500" />}
+              {isValid ? (
+                <Check className="h-4 w-4 text-secondary" />
+              ) : (
+                <X className="h-4 w-4 text-red-500" />
+              )}
               <span>{rule.label}</span>
             </li>
           );

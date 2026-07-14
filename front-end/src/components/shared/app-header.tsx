@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
-import { House, Heart, BookOpenText } from "lucide-react";
-import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { UserMenu } from "@/components/shared/user-menu";
 import { cn } from "@/lib/utils";
+import { BookOpenText, Heart, House } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const links = [
   { href: "/home", label: "Início", icon: House },
@@ -23,7 +23,9 @@ export function AppHeader() {
           <Link className="font-primary text-xl text-primary" href="/home">
             Word Explorer
           </Link>
-          <p className="font-secondary text-sm text-muted">Seu dicionário pessoal para explorar palavras em inglês.</p>
+          <p className="font-secondary text-sm text-muted">
+            Seu dicionário pessoal para explorar palavras em inglês.
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <nav className="flex flex-wrap gap-1 rounded-full bg-surface-soft p-1">

@@ -1,12 +1,14 @@
-import { NextResponse } from "next/server";
 import { jsonError } from "@/lib/api-response";
 import { BackendApiError, requestBackend } from "@/services/backend-api";
+import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const queryString = url.searchParams.toString();
-    const response = await requestBackend(`/entries/en${queryString ? `?${queryString}` : ""}`);
+    const response = await requestBackend(
+      `/entries/en${queryString ? `?${queryString}` : ""}`,
+    );
 
     return NextResponse.json(response);
   } catch (error) {

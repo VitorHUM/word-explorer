@@ -1,8 +1,8 @@
 "use client";
 
+import { ThemeProvider } from "@/components/shared/theme-provider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
-import { ThemeProvider } from "@/components/shared/theme-provider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(

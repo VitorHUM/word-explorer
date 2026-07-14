@@ -1,6 +1,12 @@
 import { Button } from "@/components/ui/button";
 
-export function EmptyState({ title, description }: { title: string; description: string }) {
+export function EmptyState({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
   return (
     <div className="rounded-2xl border border-dashed border-border bg-surface px-6 py-10 text-center">
       <h2 className="font-primary text-xl">{title}</h2>

@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import { jsonError } from "@/lib/api-response";
 import { BackendApiError, requestBackend } from "@/services/backend-api";
+import { NextResponse } from "next/server";
 
 export async function GET(
   _request: Request,
@@ -8,7 +8,9 @@ export async function GET(
 ) {
   try {
     const { word } = await params;
-    const response = await requestBackend(`/entries/en/${encodeURIComponent(word)}`);
+    const response = await requestBackend(
+      `/entries/en/${encodeURIComponent(word)}`,
+    );
 
     return NextResponse.json(response);
   } catch (error) {

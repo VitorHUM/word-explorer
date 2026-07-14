@@ -10,6 +10,8 @@ export const authResponseSchema = z.object({
   token: z.string(),
 });
 
+export const authenticatedUserSchema = authResponseSchema.omit({ token: true });
+
 export const profileSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -66,6 +68,7 @@ export const wordDetailsSchema = z.object({
 });
 
 export type AuthResponse = z.infer<typeof authResponseSchema>;
+export type AuthenticatedUser = z.infer<typeof authenticatedUserSchema>;
 export type UserProfile = z.infer<typeof profileSchema>;
 export type PaginatedWords = z.infer<typeof paginatedWordsSchema>;
 export type PaginatedUserWords = z.infer<typeof paginatedUserWordsSchema>;

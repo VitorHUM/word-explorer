@@ -1,5 +1,5 @@
-import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME } from "@/lib/constants";
+import { cookies } from "next/headers";
 
 export async function getAuthToken() {
   return (await cookies()).get(AUTH_COOKIE_NAME)?.value;
