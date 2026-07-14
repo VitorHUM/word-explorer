@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: word-explorer-api
+    runtime: node
+    rootDir: back-end
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PORT
+        sync: false
+      - key: REDIS_PASSWORD
+        sync: false
+      - key: REDIS_TTL_SECONDS
+        value: 3600
+      - key: THROTTLE_TTL_MS
+        value: 60000
+      - key: THROTTLE_LIMIT
+        value: 300
+      - key: AUTH_THROTTLE_TTL_MS
+        value: 60000
+      - key: AUTH_THROTTLE_LIMIT
+        value: 30
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 60m
+      - key: DICTIONARY_API_URL
+        value: https://api.dictionaryapi.dev/api/v2
+      - key: DICTIONARY_CACHE_TTL_SECONDS
+        value: 3600

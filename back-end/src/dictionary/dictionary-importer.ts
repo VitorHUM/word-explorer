@@ -288,6 +288,12 @@ function createRuntimeCacheService(
   Object.defineProperty(appConfigService, 'redisPort', {
     value: environment.REDIS_PORT,
   });
+  Object.defineProperty(appConfigService, 'redisUrl', {
+    value: environment.REDIS_URL,
+  });
+  Object.defineProperty(appConfigService, 'redisPassword', {
+    value: environment.REDIS_PASSWORD,
+  });
   Object.defineProperty(appConfigService, 'redisTtlSeconds', {
     value: environment.REDIS_TTL_SECONDS,
   });

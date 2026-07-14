@@ -31,12 +31,20 @@ export class AppConfigService {
       .filter(Boolean);
   }
 
-  get redisHost(): string {
-    return this.configService.getOrThrow('REDIS_HOST', { infer: true });
+  get redisUrl(): string | undefined {
+    return this.configService.get('REDIS_URL', { infer: true });
   }
 
-  get redisPort(): number {
-    return this.configService.getOrThrow('REDIS_PORT', { infer: true });
+  get redisHost(): string | undefined {
+    return this.configService.get('REDIS_HOST', { infer: true });
+  }
+
+  get redisPort(): number | undefined {
+    return this.configService.get('REDIS_PORT', { infer: true });
+  }
+
+  get redisPassword(): string | undefined {
+    return this.configService.get('REDIS_PASSWORD', { infer: true });
   }
 
   get redisTtlSeconds(): number {

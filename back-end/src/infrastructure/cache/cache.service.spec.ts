@@ -55,6 +55,12 @@ describe('CacheService', () => {
     Object.defineProperty(appConfigService, 'redisPort', {
       value: 6379,
     });
+    Object.defineProperty(appConfigService, 'redisUrl', {
+      value: undefined,
+    });
+    Object.defineProperty(appConfigService, 'redisPassword', {
+      value: undefined,
+    });
     Object.defineProperty(appConfigService, 'redisTtlSeconds', {
       value: 3600,
     });

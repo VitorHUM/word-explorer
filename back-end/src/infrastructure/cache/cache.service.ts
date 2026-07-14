@@ -4,7 +4,10 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
-import { createClient, type RedisClientType } from 'redis';
+import {
+  createClient,
+  type RedisClientOptions,
+} from 'redis';
 import { AppConfigService } from '../config/app-config.service';
 
 export type CacheStatus = 'HIT' | 'MISS';
@@ -186,13 +189,23 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   }
 
   private createRedisClient(): RedisClientAdapter {
-    const client: RedisClientType = createClient({
-      socket: {
-        host: this.appConfigService.redisHost,
-        port: this.appConfigService.redisPort,
-        reconnectStrategy: false,
-      },
-    });
+    const redisUrl = this.appConfigService.redisUrl;
+    const options: RedisClientOptions = redisUrl
+      ? {
+          url: redisUrl,
+          socket: {
+            reconnectStrategy: false,
+          },
+        }
+      : {
+          password: this.appConfigService.redisPassword,
+          socket: {
+            host: this.appConfigService.redisHost,
+            port: this.appConfigService.redisPort,
+            reconnectStrategy: false,
+          },
+        };
+    const client = createClient(options);
 
     return client as unknown as RedisClientAdapter;
   }

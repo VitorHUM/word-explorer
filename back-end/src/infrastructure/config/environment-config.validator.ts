@@ -21,8 +21,21 @@ const environmentValidationSchema = Joi.object({
     .trim()
     .min(1)
     .default('http://localhost:3000'),
-  REDIS_HOST: hostnameSchema.required(),
-  REDIS_PORT: Joi.number().port().required(),
+  REDIS_URL: Joi.string()
+    .uri({ scheme: ['redis', 'rediss'] })
+    .empty('')
+    .optional(),
+  REDIS_HOST: Joi.when('REDIS_URL', {
+    is: Joi.exist(),
+    then: hostnameSchema.empty('').optional(),
+    otherwise: hostnameSchema.required(),
+  }),
+  REDIS_PORT: Joi.when('REDIS_URL', {
+    is: Joi.exist(),
+    then: Joi.number().port().empty('').optional(),
+    otherwise: Joi.number().port().required(),
+  }),
+  REDIS_PASSWORD: Joi.string().trim().min(1).empty('').optional(),
   REDIS_TTL_SECONDS: Joi.number().integer().positive().required(),
   THROTTLE_TTL_MS: Joi.number().integer().positive().default(60000),
   THROTTLE_LIMIT: Joi.number().integer().positive().default(300),

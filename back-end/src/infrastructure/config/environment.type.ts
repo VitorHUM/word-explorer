@@ -7,8 +7,10 @@ export interface EnvironmentVariables {
   PORT: number;
   DATABASE_URL: string;
   CORS_ALLOWED_ORIGINS: string;
-  REDIS_HOST: string;
-  REDIS_PORT: number;
+  REDIS_URL?: string;
+  REDIS_HOST?: string;
+  REDIS_PORT?: number;
+  REDIS_PASSWORD?: string;
   REDIS_TTL_SECONDS: number;
   THROTTLE_TTL_MS: number;
   THROTTLE_LIMIT: number;
