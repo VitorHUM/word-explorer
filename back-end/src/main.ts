@@ -12,7 +12,8 @@ async function bootstrap() {
   configureOpenApi(app);
 
   const appConfigService = app.get(AppConfigService);
-  const baseUrl = `http://localhost:${appConfigService.port}`;
+  const baseUrl =
+    appConfigService.appBaseUrl ?? `http://localhost:${appConfigService.port}`;
 
   await app.listen(appConfigService.port);
 

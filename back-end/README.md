@@ -1,4 +1,4 @@
-# Word Explorer API
+# 📖 [Word Explorer API](https://word-explorer-api.onrender.com/docs)
 
 > API REST em NestJS para autenticação, consulta de palavras, histórico, favoritos, paginação, cache e documentação Swagger.
 
@@ -26,7 +26,7 @@ O back-end centraliza:
 | Favoritos | Implementado | Favoritar e desfavoritar |
 | Healthcheck | Implementado | `GET /health` |
 | Swagger | Implementado | `GET /docs` |
-| Deploy público | Não configurado | Nenhum link público informado |
+| Deploy público | Implementado | Render Web Service |
 
 ## Arquitetura
 
@@ -105,6 +105,7 @@ cp .env.example .env
 | --- | --- | --- |
 | `NODE_ENV` | `development` | ambiente da aplicação |
 | `PORT` | `3001` | porta HTTP |
+| `APP_BASE_URL` | `https://word-explorer-api.onrender.com` | URL pública usada nos logs da API |
 | `DATABASE_URL` | `postgresql://...` | conexão com PostgreSQL |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | origens permitidas |
 | `REDIS_HOST` | `127.0.0.1` | host do Redis |
@@ -124,6 +125,7 @@ cp .env.example .env
 ```env
 NODE_ENV=development
 PORT=3001
+APP_BASE_URL=
 DATABASE_URL="postgresql://word_explorer:word_explorer@localhost:5432/word_explorer?schema=public"
 CORS_ALLOWED_ORIGINS=http://localhost:3000
 REDIS_HOST=127.0.0.1
@@ -350,12 +352,11 @@ O Swagger documenta:
 
 - detalhes de palavras dependem da Free Dictionary API
 - sem importação prévia, a listagem local não terá conteúdo útil
-- não há deploy público documentado
 - não há endpoint dedicado para status individual de favorito no Back-end; essa verificação é derivada no Front-end
 
 ## Links de Deploy
 
 | Tipo | Valor |
 | --- | --- |
-| API pública | Não configurada |
-| Swagger público | Não configurado |
+| API pública | https://word-explorer-api.onrender.com/ |
+| Swagger público | https://word-explorer-api.onrender.com/docs |

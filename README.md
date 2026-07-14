@@ -1,4 +1,4 @@
-# Word Explorer
+# 📖 [Word Explorer Web](https://word-explorer-web.vercel.app/)
 
 > Plataforma para explorar palavras em inglês com histórico e favoritos.
 
@@ -33,7 +33,7 @@ Browser -> Front-end Next.js -> Route Handlers /api/* -> Back-end NestJS
 | Favoritos | Implementado | Criar/remover favorito com atualização otimista no front-end |
 | Histórico | Implementado | Histórico paginado por usuário |
 | Swagger | Implementado | Disponível apenas no back-end |
-| Deploy público | Não configurado | Nenhum link público informado no repositório |
+| Deploy público | Implementado | Vercel para front-end e Render para back-end |
 
 ## Arquitetura
 
@@ -60,6 +60,7 @@ Browser -> Front-end Next.js -> Route Handlers /api/* -> Back-end NestJS
 │   ├── Dockerfile
 │   └── README.md
 ├── docker-compose.yml
+├── front-end/vercel.json
 └── README.md
 ```
 
@@ -263,7 +264,7 @@ Swagger existe apenas no back-end.
 
 | Tipo | Valor |
 | --- | --- |
-| Deploy do Front-end | Não configurado |
-| Deploy do Back-end | Não configurado |
+| Deploy do Front-end | https://word-explorer-web.vercel.app/ |
+| Deploy do Back-end | https://word-explorer-api.onrender.com/docs |
 | Documentação detalhada da API | `back-end/README.md` |
 | Documentação detalhada da Web | `front-end/README.md` |

@@ -5,6 +5,7 @@ describe('validateEnvironment', () => {
     const environment = validateEnvironment({
       NODE_ENV: 'development',
       PORT: '3001',
+      APP_BASE_URL: 'http://localhost:3001',
       DATABASE_URL:
         'postgresql://word_explorer:word_explorer@localhost:5432/word_explorer?schema=public',
       CORS_ALLOWED_ORIGINS: 'http://localhost:3000,http://localhost:3002',
@@ -24,6 +25,7 @@ describe('validateEnvironment', () => {
     expect(environment).toEqual({
       NODE_ENV: 'development',
       PORT: 3001,
+      APP_BASE_URL: 'http://localhost:3001',
       DATABASE_URL:
         'postgresql://word_explorer:word_explorer@localhost:5432/word_explorer?schema=public',
       CORS_ALLOWED_ORIGINS: 'http://localhost:3000,http://localhost:3002',

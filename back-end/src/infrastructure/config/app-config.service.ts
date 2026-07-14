@@ -19,6 +19,10 @@ export class AppConfigService {
     return this.configService.getOrThrow('PORT', { infer: true });
   }
 
+  get appBaseUrl(): string | undefined {
+    return this.configService.get('APP_BASE_URL', { infer: true });
+  }
+
   get databaseUrl(): string {
     return this.configService.getOrThrow('DATABASE_URL', { infer: true });
   }

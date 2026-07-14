@@ -5,6 +5,7 @@ export type NodeEnvironment = (typeof nodeEnvironments)[number];
 export interface EnvironmentVariables {
   NODE_ENV: NodeEnvironment;
   PORT: number;
+  APP_BASE_URL?: string;
   DATABASE_URL: string;
   CORS_ALLOWED_ORIGINS: string;
   REDIS_URL?: string;
