@@ -448,6 +448,20 @@ npm run format
 npm run build
 ```
 
+Comandos focados para a suíte de front-end:
+
+```bash
+npm test -- --runInBand
+npm test -- --runInBand src/app/\(auth\)/login/page.test.tsx
+npm test -- --runInBand src/app/\(protected\)/dictionary/page.test.tsx
+```
+
+Observações da suíte:
+
+- os testes não dependem do back-end em execução
+- integrações externas são mockadas para manter execução determinística
+- a cobertura prioriza comportamento observável com seletores acessíveis
+
 ## Observações
 
 - O front-end depende do contrato documentado em `../back-end/README.md`

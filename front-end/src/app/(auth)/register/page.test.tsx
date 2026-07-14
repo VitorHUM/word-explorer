@@ -4,6 +4,7 @@ import RegisterPage from "./page";
 
 const replace = jest.fn();
 const mutateAsync = jest.fn();
+const useSignUpMock = jest.fn();
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ replace }),
@@ -14,16 +15,17 @@ jest.mock("@/components/shared/theme-toggle", () => ({
 }));
 
 jest.mock("@/hooks/use-auth", () => ({
-  useSignUp: () => ({
-    mutateAsync,
-    isPending: false,
-    isError: false,
-  }),
+  useSignUp: () => useSignUpMock(),
 }));
 
 describe("RegisterPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    useSignUpMock.mockReturnValue({
+      mutateAsync,
+      isPending: false,
+      isError: false,
+    });
   });
 
   it("mantem o botao desabilitado quando a confirmacao da senha estiver diferente", async () => {
@@ -36,6 +38,21 @@ describe("RegisterPage", () => {
     await user.type(screen.getByLabelText(/^senha$/i), "1234");
     await user.type(screen.getByLabelText(/confirmar senha/i), "4321");
 
+    expect(screen.getByRole("button", { name: /criar conta/i })).toBeDisabled();
+  });
+
+  it("mostra validacao do cadastro para e-mail invalido", async () => {
+    const user = userEvent.setup();
+
+    render(<RegisterPage />);
+
+    await user.type(screen.getByLabelText(/nome/i), "User Test");
+    await user.type(screen.getByLabelText(/e-mail/i), "email-invalido");
+    await user.type(screen.getByLabelText(/^senha$/i), "1234");
+    await user.type(screen.getByLabelText(/confirmar senha/i), "1234");
+    await user.tab();
+
+    expect(screen.getByText(/informe um e-mail valido/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /criar conta/i })).toBeDisabled();
   });
 
