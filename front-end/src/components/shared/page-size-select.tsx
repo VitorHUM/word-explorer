@@ -1,5 +1,5 @@
-import { PAGE_SIZE_OPTIONS } from "@/lib/constants";
 import { Select } from "@/components/ui/select";
+import { PAGE_SIZE_OPTIONS } from "@/lib/constants";
 
 export function PageSizeSelect({
   value,
@@ -14,7 +14,7 @@ export function PageSizeSelect({
         Itens por página
       </label>
       <Select
-        className="w-24"
+        className="w-16"
         id="page-size"
         onChange={(event) => onChange(Number(event.target.value))}
         value={value}

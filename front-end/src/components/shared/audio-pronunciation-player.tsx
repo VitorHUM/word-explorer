@@ -1,9 +1,9 @@
 "use client";
 
-import { Pause, Play } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { Pause, Play } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 const playbackRates = [0.5, 1, 1.5];
 
@@ -40,14 +40,22 @@ export function AudioPronunciationPlayer({ audioUrl }: { audioUrl: string }) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-surface p-3">
-      <audio onEnded={() => setIsPlaying(false)} ref={audioRef} src={audioUrl} />
+    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-surface p-2">
+      <audio
+        onEnded={() => setIsPlaying(false)}
+        ref={audioRef}
+        src={audioUrl}
+      />
       <Button onClick={togglePlay} size="sm" type="button" variant="secondary">
-        {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+        {isPlaying ? (
+          <Pause className="h-4 w-4" />
+        ) : (
+          <Play className="h-4 w-4" />
+        )}
       </Button>
       <span className="text-sm text-muted">Pronúncia</span>
       <Select
-        className="w-24"
+        className="w-16"
         onChange={(event) => setPlaybackRate(Number(event.target.value))}
         value={String(playbackRate)}
       >

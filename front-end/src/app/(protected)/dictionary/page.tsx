@@ -1,19 +1,24 @@
 "use client";
 
-import { Search } from "lucide-react";
-import { useState } from "react";
+import { FavoriteButton } from "@/components/shared/favorite-button";
 import { LoadingList } from "@/components/shared/loading-list";
 import { MotionFade } from "@/components/shared/motion-fade";
 import { PageSizeSelect } from "@/components/shared/page-size-select";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 import { EmptyState, ErrorState } from "@/components/shared/state-panels";
 import { WordCard } from "@/components/shared/word-card";
-import { FavoriteButton } from "@/components/shared/favorite-button";
 import { WordDetailsView } from "@/components/shared/word-details-view";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useDictionaryWords } from "@/hooks/use-words";
+import { Search } from "lucide-react";
+import { useState } from "react";
 
 export default function DictionaryPage() {
   const [page, setPage] = useState(1);
@@ -35,7 +40,9 @@ export default function DictionaryPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="font-primary text-3xl">Dicionário completo</h1>
-            <p className="font-secondary text-sm text-muted">Navegue pela lista paginada e abra os detalhes em um modal.</p>
+            <p className="font-secondary text-sm text-muted">
+              Navegue pelo dicionário.
+            </p>
           </div>
           <div className="w-full sm:max-w-sm">
             <div className="mb-2 flex items-center gap-2 text-sm text-muted">
@@ -48,7 +55,7 @@ export default function DictionaryPage() {
                 setPage(1);
                 setFilter(event.target.value);
               }}
-              placeholder="Buscar por prefixo"
+              placeholder="Ex.: fire"
               value={filter}
             />
           </div>
@@ -68,10 +75,17 @@ export default function DictionaryPage() {
             title="Falha ao carregar o dicionário"
           />
         ) : null}
-        {!dictionaryQuery.isLoading && !dictionaryQuery.isError && words.length === 0 ? (
-          <EmptyState description="Nenhuma palavra encontrada para esse filtro." title="Lista vazia" />
+        {!dictionaryQuery.isLoading &&
+        !dictionaryQuery.isError &&
+        words.length === 0 ? (
+          <EmptyState
+            description="Nenhuma palavra encontrada para esse filtro."
+            title="Lista vazia"
+          />
         ) : null}
-        {!dictionaryQuery.isLoading && !dictionaryQuery.isError && words.length > 0 ? (
+        {!dictionaryQuery.isLoading &&
+        !dictionaryQuery.isError &&
+        words.length > 0 ? (
           <div className="space-y-4">
             {words.map((word) => (
               <WordCard
@@ -92,10 +106,15 @@ export default function DictionaryPage() {
             />
           </div>
         ) : null}
-        <Dialog onOpenChange={(open) => !open && setSelectedWord(null)} open={Boolean(selectedWord)}>
+        <Dialog
+          onOpenChange={(open) => !open && setSelectedWord(null)}
+          open={Boolean(selectedWord)}
+        >
           <DialogContent className="max-h-[85vh] overflow-y-auto">
             <DialogTitle className="sr-only">Detalhes da palavra</DialogTitle>
-            <DialogDescription className="sr-only">Visualização detalhada da palavra selecionada.</DialogDescription>
+            <DialogDescription className="sr-only">
+              Visualização detalhada da palavra selecionada.
+            </DialogDescription>
             {selectedWord ? <WordDetailsView word={selectedWord} /> : null}
           </DialogContent>
         </Dialog>

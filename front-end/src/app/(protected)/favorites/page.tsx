@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { FavoriteButton } from "@/components/shared/favorite-button";
 import { LoadingList } from "@/components/shared/loading-list";
 import { MotionFade } from "@/components/shared/motion-fade";
@@ -9,6 +8,7 @@ import { PaginationControls } from "@/components/shared/pagination-controls";
 import { EmptyState, ErrorState } from "@/components/shared/state-panels";
 import { WordCard } from "@/components/shared/word-card";
 import { useFavorites } from "@/hooks/use-words";
+import { useState } from "react";
 
 export default function FavoritesPage() {
   const [page, setPage] = useState(1);
@@ -26,7 +26,9 @@ export default function FavoritesPage() {
       <section className="space-y-6">
         <div>
           <h1 className="font-primary text-3xl">Favoritos</h1>
-          <p className="font-secondary text-sm text-muted">Gerencie suas palavras salvas.</p>
+          <p className="font-secondary text-sm text-muted">
+            Gerencie suas palavras salvas.
+          </p>
         </div>
         <PageSizeSelect
           onChange={(nextLimit) => {
@@ -43,10 +45,17 @@ export default function FavoritesPage() {
             title="Falha ao carregar os favoritos"
           />
         ) : null}
-        {!favoritesQuery.isLoading && !favoritesQuery.isError && favorites.length === 0 ? (
-          <EmptyState description="Você ainda não adicionou palavras aos favoritos." title="Nenhum favorito" />
+        {!favoritesQuery.isLoading &&
+        !favoritesQuery.isError &&
+        favorites.length === 0 ? (
+          <EmptyState
+            description="Você ainda não adicionou palavras aos favoritos."
+            title="Nenhum favorito"
+          />
         ) : null}
-        {!favoritesQuery.isLoading && !favoritesQuery.isError && favorites.length > 0 ? (
+        {!favoritesQuery.isLoading &&
+        !favoritesQuery.isError &&
+        favorites.length > 0 ? (
           <div className="space-y-4">
             {favorites.map((item) => (
               <WordCard

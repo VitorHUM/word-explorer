@@ -1,7 +1,5 @@
 "use client";
 
-import { Languages } from "lucide-react";
-import Link from "next/link";
 import { AudioPronunciationPlayer } from "@/components/shared/audio-pronunciation-player";
 import { CopyButton } from "@/components/shared/copy-button";
 import { FavoriteButton } from "@/components/shared/favorite-button";
@@ -9,6 +7,8 @@ import { ErrorState } from "@/components/shared/state-panels";
 import { WordDetailsSkeleton } from "@/components/shared/word-details-skeleton";
 import { Button } from "@/components/ui/button";
 import { useWordDetails } from "@/hooks/use-words";
+import { ChevronLeft, Languages } from "lucide-react";
+import Link from "next/link";
 
 export function WordDetailsView({ word }: { word: string }) {
   const detailsQuery = useWordDetails(word);
@@ -39,32 +39,40 @@ export function WordDetailsView({ word }: { word: string }) {
     <section className="space-y-6">
       <div>
         <Button asChild variant="outline">
-          <Link href="/dictionary">Voltar ao dicionário</Link>
+          <Link href="/dictionary">
+            <ChevronLeft className="mr-1 h-4 w-4" />
+            Voltar ao dicionário
+          </Link>
         </Button>
       </div>
       <div className="flex flex-col gap-4 rounded-3xl border border-border bg-surface p-6 shadow-sm sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="font-primary text-4xl text-primary">{details.word}</h1>
+            <h1 className="font-primary text-4xl text-primary">
+              {details.word}
+            </h1>
             <CopyButton label="a palavra" value={details.word} />
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {details.phonetics.map((phonetic, index) => (
-              <span className="rounded-full bg-surface-soft px-3 py-1 text-sm" key={`${phonetic.text}-${index}`}>
+              <span
+                className="rounded-full bg-surface-soft px-3 py-1 text-sm"
+                key={`${phonetic.text}-${index}`}
+              >
                 {phonetic.text || "Sem fonética"}
               </span>
             ))}
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             {audioUrl ? <AudioPronunciationPlayer audioUrl={audioUrl} /> : null}
-            <Button asChild size="sm" variant="outline">
+            <Button asChild variant="outline">
               <Link
                 href={`https://translate.google.com/?sl=en&tl=pt&text=${encodeURIComponent(details.word)}&op=translate`}
                 rel="noreferrer"
                 target="_blank"
               >
                 <Languages className="mr-2 h-4 w-4" />
-                Traduzir
+                Tradutor
               </Link>
             </Button>
           </div>
@@ -73,23 +81,42 @@ export function WordDetailsView({ word }: { word: string }) {
       </div>
       <div className="space-y-4">
         {details.meanings.map((meaning, index) => (
-          <article className="rounded-3xl border border-border bg-surface p-6 shadow-sm" key={`${meaning.partOfSpeech}-${index}`}>
+          <article
+            className="rounded-3xl border border-border bg-surface p-6 shadow-sm"
+            key={`${meaning.partOfSpeech}-${index}`}
+          >
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <h2 className="font-primary text-xl text-text">{meaning.partOfSpeech || "Significado"}</h2>
+              <h2 className="font-primary text-xl text-text">
+                {meaning.partOfSpeech || "Significado"}
+              </h2>
               <CopyButton
                 label="os detalhes"
-                value={meaning.definitions.map((definition) => definition.definition).join("\n")}
+                value={meaning.definitions
+                  .map((definition) => definition.definition)
+                  .join("\n")}
               />
             </div>
             <div className="mt-4 space-y-4">
               {meaning.definitions.map((definition, definitionIndex) => (
-                <div className="space-y-2" key={`${definition.definition}-${definitionIndex}`}>
+                <div
+                  className="space-y-2"
+                  key={`${definition.definition}-${definitionIndex}`}
+                >
                   <p className="font-text text-base">{definition.definition}</p>
                   {definition.example ? (
-                    <p className="text-sm italic text-muted">Exemplo: {definition.example}</p>
+                    <p className="text-sm italic text-muted">
+                      Example: {definition.example}
+                    </p>
                   ) : null}
                   {definition.synonyms.length > 0 ? (
-                    <p className="text-sm text-muted">Sinônimos: {definition.synonyms.join(", ")}</p>
+                    <p className="text-sm text-muted">
+                      Synonyms: {definition.synonyms.join(", ")}
+                    </p>
+                  ) : null}
+                  {definition.antonyms.length > 0 ? (
+                    <p className="text-sm text-muted">
+                      Antonyms: {definition.antonyms.join(", ")}
+                    </p>
                   ) : null}
                 </div>
               ))}
@@ -103,7 +130,12 @@ export function WordDetailsView({ word }: { word: string }) {
           <ul className="mt-3 space-y-2">
             {details.sourceUrls.map((sourceUrl) => (
               <li key={sourceUrl}>
-                <a className="text-sm text-primary underline" href={sourceUrl} rel="noreferrer" target="_blank">
+                <a
+                  className="text-sm text-primary underline"
+                  href={sourceUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                >
                   {sourceUrl}
                 </a>
               </li>

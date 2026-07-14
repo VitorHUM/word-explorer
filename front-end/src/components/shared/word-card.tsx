@@ -1,7 +1,7 @@
-import Link from "next/link";
-import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
+import { motion } from "framer-motion";
+import Link from "next/link";
 
 type WordCardProps = {
   word: string;
@@ -11,7 +11,13 @@ type WordCardProps = {
   subtitle?: string;
 };
 
-export function WordCard({ word, added, action, onPreview, subtitle }: WordCardProps) {
+export function WordCard({
+  word,
+  added,
+  action,
+  onPreview,
+  subtitle,
+}: WordCardProps) {
   return (
     <motion.div
       animate={{ opacity: 1, y: 0 }}
@@ -20,11 +26,20 @@ export function WordCard({ word, added, action, onPreview, subtitle }: WordCardP
       transition={{ duration: 0.2 }}
     >
       <div>
-        <Link className="font-primary text-lg text-primary hover:text-primary-strong" href={`/word/${word}`}>
+        <Link
+          className="font-primary text-lg text-primary hover:text-primary-strong"
+          href={`/word/${word}`}
+        >
           {word}
         </Link>
-        {added ? <p className="font-secondary text-sm text-muted">{formatDate(added)}</p> : null}
-        {subtitle ? <p className="font-secondary text-sm text-muted">{subtitle}</p> : null}
+        {added ? (
+          <p className="font-secondary text-sm text-muted">
+            {formatDate(added)}
+          </p>
+        ) : null}
+        {subtitle ? (
+          <p className="font-secondary text-sm text-muted">{subtitle}</p>
+        ) : null}
       </div>
       <div className="flex items-center gap-2">
         {onPreview ? (

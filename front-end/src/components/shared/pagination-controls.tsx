@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export function PaginationControls({
   page,
@@ -43,43 +43,58 @@ export function PaginationControls({
     <div className="space-y-4 rounded-2xl border border-border bg-surface p-4">
       <div className="flex flex-col gap-2 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
         <span>
-          Página {page} de {Math.max(totalPages, 1)}
+          Página {page} de {Math.max(totalPages, 1).toLocaleString("pt-BR")}
         </span>
-        <span>
-          {currentItemsCount.toLocaleString("pt-BR")} itens nesta página • {totalDocs.toLocaleString("pt-BR")} no total
+
+        {totalPages > 1 ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-center">
+            <Button
+              aria-label="Página anterior"
+              disabled={!hasPrev}
+              onClick={() => onPageChange(page - 1)}
+              variant="outline"
+            >
+              <ChevronLeft className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Anterior</span>
+            </Button>
+
+            <div className="flex items-center gap-2 rounded-xl border border-border bg-surface-soft px-3 py-1">
+              <Input
+                className="h-9 w-16 sm:w-20"
+                id="page-input"
+                inputMode="numeric"
+                onBlur={goToTypedPage}
+                onChange={(event) => setPageInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    goToTypedPage();
+                  }
+                }}
+                value={pageInput}
+              />
+              <span className="text-sm text-muted">
+                de {Math.max(totalPages, 1).toLocaleString("pt-BR")}
+              </span>
+            </div>
+
+            <Button
+              aria-label="Próxima página"
+              disabled={!hasNext}
+              onClick={() => onPageChange(page + 1)}
+              variant="outline"
+            >
+              <span className="hidden sm:inline">Próxima</span>
+              <ChevronRight className="h-4 w-4 sm:ml-1" />
+            </Button>
+          </div>
+        ) : null}
+
+        <span className="text-left sm:text-right">
+          {currentItemsCount.toLocaleString("pt-BR")} itens nesta página •{" "}
+          {totalDocs.toLocaleString("pt-BR")} no total
         </span>
       </div>
-
-      {totalPages > 1 ? (
-        <div className="flex flex-wrap items-center gap-2">
-        <Button disabled={!hasPrev} onClick={() => onPageChange(page - 1)} variant="outline">
-          <ChevronLeft className="mr-2 h-4 w-4" />
-          Anterior
-        </Button>
-          <div className="flex items-center gap-2 rounded-xl border border-border bg-surface-soft px-3 py-2">
-            <span className="text-sm text-muted">Página</span>
-            <Input
-              className="h-9 w-20"
-              id="page-input"
-              inputMode="numeric"
-              onBlur={goToTypedPage}
-              onChange={(event) => setPageInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  goToTypedPage();
-                }
-              }}
-              value={pageInput}
-            />
-            <span className="text-sm text-muted">de {Math.max(totalPages, 1)}</span>
-          </div>
-        <Button disabled={!hasNext} onClick={() => onPageChange(page + 1)} variant="outline">
-          Próxima
-          <ChevronRight className="ml-2 h-4 w-4" />
-        </Button>
-        </div>
-      ) : null}
     </div>
   );
 }
