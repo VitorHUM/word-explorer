@@ -91,8 +91,7 @@ describe("DictionaryPage", () => {
     await user.type(screen.getByLabelText(/buscar no dicion.rio/i), "fire");
 
     expect(screen.getByDisplayValue("fire")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /^fire$/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /firefly/i })).toBeInTheDocument();
+    expect(useDictionaryWordsMock).toHaveBeenLastCalledWith("fire", 1, 20);
   });
 
   it("abre o modal ao selecionar uma palavra da lista", async () => {

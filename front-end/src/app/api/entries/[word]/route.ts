@@ -10,6 +10,7 @@ export async function GET(
     const { word } = await params;
     const response = await requestBackend(
       `/entries/en/${encodeURIComponent(word)}`,
+      { clearAuthOnUnauthorized: true },
     );
 
     return NextResponse.json(response);

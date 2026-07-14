@@ -7,6 +7,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const response = await requestBackend(
       `/user/me/favorites?${url.searchParams.toString()}`,
+      { clearAuthOnUnauthorized: true },
     );
 
     return NextResponse.json(response);

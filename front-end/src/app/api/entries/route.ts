@@ -8,6 +8,7 @@ export async function GET(request: Request) {
     const queryString = url.searchParams.toString();
     const response = await requestBackend(
       `/entries/en${queryString ? `?${queryString}` : ""}`,
+      { clearAuthOnUnauthorized: true },
     );
 
     return NextResponse.json(response);

@@ -9,6 +9,8 @@ export class HttpError extends Error {
   }
 }
 
+export const SESSION_EXPIRED_REASON = "session-expired";
+
 type HttpOptions = RequestInit & {
   redirectOnUnauthorized?: boolean;
 };
@@ -37,7 +39,7 @@ export async function http<T>(input: RequestInfo | URL, init?: HttpOptions) {
       init?.redirectOnUnauthorized !== false &&
       typeof window !== "undefined"
     ) {
-      window.location.href = "/login";
+      window.location.href = `/login?reason=${SESSION_EXPIRED_REASON}`;
     }
 
     throw new HttpError(message, response.status);

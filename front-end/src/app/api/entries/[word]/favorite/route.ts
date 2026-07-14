@@ -9,6 +9,7 @@ export async function POST(
   try {
     const { word } = await params;
     await requestBackend(`/entries/en/${encodeURIComponent(word)}/favorite`, {
+      clearAuthOnUnauthorized: true,
       method: "POST",
     });
 
@@ -29,6 +30,7 @@ export async function DELETE(
   try {
     const { word } = await params;
     await requestBackend(`/entries/en/${encodeURIComponent(word)}/unfavorite`, {
+      clearAuthOnUnauthorized: true,
       method: "DELETE",
     });
 

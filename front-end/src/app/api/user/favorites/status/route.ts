@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
 import { jsonError } from "@/lib/api-response";
 import { BackendApiError, requestBackend } from "@/services/backend-api";
 import { paginatedUserWordsSchema } from "@/types/api";
+import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
   try {
@@ -17,7 +17,9 @@ export async function GET(request: Request) {
 
     while (hasNext) {
       const response = paginatedUserWordsSchema.parse(
-        await requestBackend(`/user/me/favorites?page=${page}&limit=100`),
+        await requestBackend(`/user/me/favorites?page=${page}&limit=100`, {
+          clearAuthOnUnauthorized: true,
+        }),
       );
 
       if (response.results.some((item) => item.word.toLowerCase() === word)) {

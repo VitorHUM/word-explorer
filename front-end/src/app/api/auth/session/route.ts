@@ -12,7 +12,11 @@ export async function GET() {
   }
 
   try {
-    const response = profileSchema.parse(await requestBackend("/user/me"));
+    const response = profileSchema.parse(
+      await requestBackend("/user/me", {
+        clearAuthOnUnauthorized: true,
+      }),
+    );
     return NextResponse.json(response);
   } catch (error) {
     if (error instanceof BackendApiError) {

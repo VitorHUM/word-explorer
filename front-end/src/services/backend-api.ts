@@ -12,6 +12,7 @@ export class BackendApiError extends Error {
 
 type RequestBackendOptions = RequestInit & {
   auth?: boolean;
+  clearAuthOnUnauthorized?: boolean;
 };
 
 export async function requestBackend(
@@ -54,7 +55,7 @@ export async function requestBackend(
       message = response.statusText || message;
     }
 
-    if (response.status === 401) {
+    if (response.status === 401 && options.clearAuthOnUnauthorized) {
       await clearAuthToken();
     }
 
