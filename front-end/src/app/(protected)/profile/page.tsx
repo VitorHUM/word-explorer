@@ -4,13 +4,16 @@ import { LoadingList } from "@/components/shared/loading-list";
 import { MotionFade } from "@/components/shared/motion-fade";
 import { ErrorState } from "@/components/shared/state-panels";
 import { WordCard } from "@/components/shared/word-card";
+import { WordDetailsDialog } from "@/components/shared/word-details-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/hooks/use-auth";
 import { useHistory } from "@/hooks/use-words";
 import { formatDate } from "@/lib/utils";
 import { LoaderCircle } from "lucide-react";
+import { useState } from "react";
 
 export default function ProfilePage() {
+  const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const sessionQuery = useSession();
   const historyQuery = useHistory();
 
@@ -106,12 +109,17 @@ export default function ProfilePage() {
                 <WordCard
                   added={item.added}
                   key={`${item.word}-${item.added}`}
+                  onPreview={() => setSelectedWord(item.word)}
                   word={item.word}
                 />
               ))}
             </div>
           ) : null}
         </div>
+        <WordDetailsDialog
+          onClose={() => setSelectedWord(null)}
+          word={selectedWord}
+        />
       </section>
     </MotionFade>
   );

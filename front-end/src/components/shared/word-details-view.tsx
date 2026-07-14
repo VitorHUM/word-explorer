@@ -10,7 +10,13 @@ import { useWordDetails } from "@/hooks/use-words";
 import { ChevronLeft, Languages } from "lucide-react";
 import Link from "next/link";
 
-export function WordDetailsView({ word }: { word: string }) {
+export function WordDetailsView({
+  showBackLink = true,
+  word,
+}: {
+  showBackLink?: boolean;
+  word: string;
+}) {
   const detailsQuery = useWordDetails(word);
 
   if (detailsQuery.isLoading) {
@@ -37,14 +43,16 @@ export function WordDetailsView({ word }: { word: string }) {
 
   return (
     <section className="space-y-6">
-      <div>
-        <Button asChild variant="outline">
-          <Link href="/dictionary">
-            <ChevronLeft className="mr-1 h-4 w-4" />
-            Voltar ao dicionário
-          </Link>
-        </Button>
-      </div>
+      {showBackLink ? (
+        <div>
+          <Button asChild variant="outline">
+            <Link href="/dictionary">
+              <ChevronLeft className="mr-1 h-4 w-4" />
+              Voltar ao dicionário
+            </Link>
+          </Button>
+        </div>
+      ) : null}
       <div className="flex flex-col gap-4 rounded-3xl border border-border bg-surface p-6 shadow-sm sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">

@@ -7,6 +7,7 @@ import { PageSizeSelect } from "@/components/shared/page-size-select";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 import { EmptyState, ErrorState } from "@/components/shared/state-panels";
 import { WordCard } from "@/components/shared/word-card";
+import { WordDetailsDialog } from "@/components/shared/word-details-dialog";
 import { useFavorites } from "@/hooks/use-words";
 import { LoaderCircle } from "lucide-react";
 import { useState } from "react";
@@ -14,6 +15,7 @@ import { useState } from "react";
 export default function FavoritesPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
+  const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const favoritesQuery = useFavorites(page, limit);
   const favorites = favoritesQuery.data?.results ?? [];
   const currentPage = favoritesQuery.data?.page ?? page;
@@ -70,6 +72,7 @@ export default function FavoritesPage() {
                 action={<FavoriteButton initialIsFavorite word={item.word} />}
                 added={item.added}
                 key={`${item.word}-${item.added}`}
+                onPreview={() => setSelectedWord(item.word)}
                 word={item.word}
               />
             ))}
@@ -84,6 +87,10 @@ export default function FavoritesPage() {
             />
           </div>
         ) : null}
+        <WordDetailsDialog
+          onClose={() => setSelectedWord(null)}
+          word={selectedWord}
+        />
       </section>
     </MotionFade>
   );

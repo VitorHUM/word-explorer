@@ -3,17 +3,17 @@
 import { MotionFade } from "@/components/shared/motion-fade";
 import { EmptyState, ErrorState } from "@/components/shared/state-panels";
 import { WordCard } from "@/components/shared/word-card";
+import { WordDetailsDialog } from "@/components/shared/word-details-dialog";
 import { WordSearchSkeleton } from "@/components/shared/word-search-skeleton";
 import { Input } from "@/components/ui/input";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useDictionaryWords, useRandomHomeWords } from "@/hooks/use-words";
 import { Loader2, Search, X } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export function WordSearchPanel() {
-  const router = useRouter();
   const [search, setSearch] = useState("");
+  const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const debouncedSearch = useDebouncedValue(search, 600);
   const randomWordsQuery = useRandomHomeWords(8);
   const searchWordsQuery = useDictionaryWords(
@@ -112,13 +112,17 @@ export function WordSearchPanel() {
               {words.map((word) => (
                 <WordCard
                   key={word}
-                  onPreview={() => router.push(`/word/${word}`)}
+                  onPreview={() => setSelectedWord(word)}
                   word={word}
                 />
               ))}
             </div>
           ) : null}
         </div>
+        <WordDetailsDialog
+          onClose={() => setSelectedWord(null)}
+          word={selectedWord}
+        />
       </section>
     </MotionFade>
   );

@@ -4,11 +4,14 @@ import { LoadingList } from "@/components/shared/loading-list";
 import { MotionFade } from "@/components/shared/motion-fade";
 import { EmptyState, ErrorState } from "@/components/shared/state-panels";
 import { WordCard } from "@/components/shared/word-card";
+import { WordDetailsDialog } from "@/components/shared/word-details-dialog";
 import { Button } from "@/components/ui/button";
 import { useHistory } from "@/hooks/use-words";
 import Link from "next/link";
+import { useState } from "react";
 
 export function HomeHistorySection() {
+  const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const historyQuery = useHistory(1, 7);
   const history = historyQuery.data?.results ?? [];
 
@@ -50,11 +53,16 @@ export function HomeHistorySection() {
               <WordCard
                 added={item.added}
                 key={`${item.word}-${item.added}`}
+                onPreview={() => setSelectedWord(item.word)}
                 word={item.word}
               />
             ))}
           </div>
         ) : null}
+        <WordDetailsDialog
+          onClose={() => setSelectedWord(null)}
+          word={selectedWord}
+        />
       </section>
     </MotionFade>
   );

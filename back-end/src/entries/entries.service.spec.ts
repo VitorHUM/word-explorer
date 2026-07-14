@@ -4,6 +4,7 @@ import { FavoriteWordRepository } from '../infrastructure/database/repositories/
 import { WordHistoryRepository } from '../infrastructure/database/repositories/word-history.repository';
 import { FreeDictionaryClient } from '../infrastructure/dictionary/free-dictionary.client';
 import { EntriesService } from './entries.service';
+import { FavoriteWordQueueService } from './favorite-word-queue.service';
 
 describe('EntriesService list', () => {
   let entriesService: EntriesService;
@@ -55,6 +56,9 @@ describe('EntriesService list', () => {
       favoriteWordRepositoryInstance,
       wordHistoryRepositoryInstance,
       freeDictionaryClientInstance,
+      Object.create(
+        FavoriteWordQueueService.prototype,
+      ) as FavoriteWordQueueService,
     );
   });
 

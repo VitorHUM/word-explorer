@@ -15,6 +15,7 @@ describe('EntriesService favorites', () => {
     create: jest.Mock;
     deleteByUserAndWord: jest.Mock;
   };
+  let favoriteWordQueueService: { enqueue: jest.Mock };
 
   const authenticatedUser: AuthenticatedUser = {
     id: 'user-id',
@@ -37,6 +38,9 @@ describe('EntriesService favorites', () => {
     favoriteWordRepository = {
       create: jest.fn(),
       deleteByUserAndWord: jest.fn(),
+    };
+    favoriteWordQueueService = {
+      enqueue: jest.fn().mockResolvedValue(undefined),
     };
 
     const cacheServiceInstance = Object.create(
@@ -66,6 +70,7 @@ describe('EntriesService favorites', () => {
       favoriteWordRepositoryInstance,
       wordHistoryRepositoryInstance,
       freeDictionaryClientInstance,
+      favoriteWordQueueService as never,
     );
   });
 
@@ -78,21 +83,27 @@ describe('EntriesService favorites', () => {
       entriesService.favoriteWord(authenticatedUser, 'Fire'),
     ).resolves.toBeUndefined();
 
-    expect(favoriteWordRepository.create).toHaveBeenCalledWith({
+    expect(favoriteWordQueueService.enqueue).toHaveBeenCalledWith({
+      action: 'favorite',
       userId: 'user-id',
       wordId: 'word-id',
     });
   });
 
-  it('should favorite again idempotently on unique constraint violation', async () => {
+  it('should enqueue repeated favorite requests for async idempotent processing', async () => {
     dictionaryWordRepository.findIdByValue.mockResolvedValue({
       id: 'word-id',
     });
-    favoriteWordRepository.create.mockRejectedValue({ code: 'P2002' });
 
     await expect(
       entriesService.favoriteWord(authenticatedUser, 'fire'),
     ).resolves.toBeUndefined();
+
+    expect(favoriteWordQueueService.enqueue).toHaveBeenCalledWith({
+      action: 'favorite',
+      userId: 'user-id',
+      wordId: 'word-id',
+    });
   });
 
   it('should unfavorite a word', async () => {
@@ -105,7 +116,8 @@ describe('EntriesService favorites', () => {
       entriesService.unfavoriteWord(authenticatedUser, 'fire'),
     ).resolves.toBeUndefined();
 
-    expect(favoriteWordRepository.deleteByUserAndWord).toHaveBeenCalledWith({
+    expect(favoriteWordQueueService.enqueue).toHaveBeenCalledWith({
+      action: 'unfavorite',
       userId: 'user-id',
       wordId: 'word-id',
     });
@@ -146,24 +158,27 @@ describe('EntriesService favorites', () => {
       'fire',
     );
 
-    expect(favoriteWordRepository.create).toHaveBeenNthCalledWith(1, {
+    expect(favoriteWordQueueService.enqueue).toHaveBeenNthCalledWith(1, {
+      action: 'favorite',
       userId: 'user-a',
       wordId: 'word-id',
     });
-    expect(favoriteWordRepository.create).toHaveBeenNthCalledWith(2, {
+    expect(favoriteWordQueueService.enqueue).toHaveBeenNthCalledWith(2, {
+      action: 'favorite',
       userId: 'user-b',
       wordId: 'word-id',
     });
   });
 
-  it('should tolerate concurrent unique constraint violations without duplicating favorites', async () => {
+  it('should enqueue concurrent favorite attempts for worker-side de-duplication', async () => {
     dictionaryWordRepository.findIdByValue.mockResolvedValue({
       id: 'word-id',
     });
-    favoriteWordRepository.create.mockRejectedValue({ code: 'P2002' });
 
     await expect(
       entriesService.favoriteWord(authenticatedUser, 'fire'),
     ).resolves.toBeUndefined();
+
+    expect(favoriteWordQueueService.enqueue).toHaveBeenCalledTimes(1);
   });
 });

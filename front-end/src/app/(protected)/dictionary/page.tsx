@@ -6,13 +6,7 @@ import { PageSizeSelect } from "@/components/shared/page-size-select";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 import { EmptyState, ErrorState } from "@/components/shared/state-panels";
 import { WordCard } from "@/components/shared/word-card";
-import { WordDetailsView } from "@/components/shared/word-details-view";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { WordDetailsDialog } from "@/components/shared/word-details-dialog";
 import { Input } from "@/components/ui/input";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useDictionaryWords } from "@/hooks/use-words";
@@ -129,18 +123,10 @@ export default function DictionaryPage() {
             />
           </div>
         ) : null}
-        <Dialog
-          onOpenChange={(open) => !open && setSelectedWord(null)}
-          open={Boolean(selectedWord)}
-        >
-          <DialogContent className="max-h-[85vh] overflow-y-auto">
-            <DialogTitle className="sr-only">Detalhes da palavra</DialogTitle>
-            <DialogDescription className="sr-only">
-              Visualização detalhada da palavra selecionada.
-            </DialogDescription>
-            {selectedWord ? <WordDetailsView word={selectedWord} /> : null}
-          </DialogContent>
-        </Dialog>
+        <WordDetailsDialog
+          onClose={() => setSelectedWord(null)}
+          word={selectedWord}
+        />
       </section>
     </MotionFade>
   );

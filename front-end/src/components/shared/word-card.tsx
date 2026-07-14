@@ -21,25 +21,33 @@ export function WordCard({
   href,
 }: WordCardProps) {
   const destination = href ?? `/word/${word}`;
+  const isPreviewable = Boolean(onPreview);
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (!onPreview || (event.key !== "Enter" && event.key !== " ")) {
+      return;
+    }
+
+    event.preventDefault();
+    onPreview();
+  }
 
   return (
     <motion.div
       animate={{ opacity: 1, y: 0 }}
-      className="relative flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4 shadow-sm transition-colors hover:bg-surface-soft sm:flex-row sm:items-center sm:justify-between"
+      className={`relative flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4 shadow-sm transition-colors hover:bg-surface-soft sm:flex-row sm:items-center sm:justify-between ${isPreviewable ? "cursor-pointer" : ""}`}
       initial={{ opacity: 0, y: 8 }}
+      onClick={onPreview}
+      onKeyDown={handleKeyDown}
+      role={isPreviewable ? "button" : undefined}
+      tabIndex={isPreviewable ? 0 : undefined}
       transition={{ duration: 0.2 }}
     >
-      {!onPreview ? (
-        <Link
-          aria-label={`Abrir detalhes de ${word}`}
-          className="absolute inset-0 rounded-2xl"
-          href={destination}
-        />
-      ) : null}
       <div className="relative z-10">
         <Link
           className="font-primary text-lg text-primary hover:text-primary-strong"
           href={destination}
+          onClick={(event) => event.stopPropagation()}
         >
           {word}
         </Link>
@@ -52,10 +60,13 @@ export function WordCard({
           <p className="font-secondary text-sm text-muted">{subtitle}</p>
         ) : null}
       </div>
-      <div className="relative z-10 flex items-center gap-2">
+      <div
+        className="relative z-10 flex items-center gap-2"
+        onClick={(event) => event.stopPropagation()}
+      >
         {onPreview ? (
-          <Button onClick={onPreview} size="sm" variant="secondary">
-            Ver detalhes
+          <Button asChild size="sm" variant="secondary">
+            <Link href={destination}>Ver detalhes</Link>
           </Button>
         ) : null}
         {action}

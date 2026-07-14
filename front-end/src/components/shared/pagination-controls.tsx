@@ -29,14 +29,35 @@ export function PaginationControls({
     setPageInput(String(page));
   }, [page]);
 
-  function goToTypedPage() {
-    const nextPage = Number(pageInput);
+  function getSafePage(value: string) {
+    const nextPage = Number(value);
 
     if (!Number.isFinite(nextPage)) {
+      return page;
+    }
+
+    return Math.min(Math.max(1, nextPage), Math.max(totalPages, 1));
+  }
+
+  function handlePageInputChange(value: string) {
+    const numericValue = value.replace(/\D/g, "");
+
+    if (!numericValue) {
+      setPageInput("");
       return;
     }
 
-    const safePage = Math.min(Math.max(1, nextPage), totalPages || 1);
+    setPageInput(String(getSafePage(numericValue)));
+  }
+
+  function goToTypedPage() {
+    if (!pageInput) {
+      setPageInput(String(page));
+      return;
+    }
+
+    const safePage = getSafePage(pageInput);
+    setPageInput(String(safePage));
     onPageChange(safePage);
   }
 
@@ -64,8 +85,10 @@ export function PaginationControls({
                 className="h-9 w-16 sm:w-20"
                 id={pageInputId}
                 inputMode="numeric"
+                min={1}
+                max={Math.max(totalPages, 1)}
                 onBlur={goToTypedPage}
-                onChange={(event) => setPageInput(event.target.value)}
+                onChange={(event) => handlePageInputChange(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();
