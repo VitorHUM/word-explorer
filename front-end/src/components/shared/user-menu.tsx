@@ -38,9 +38,11 @@ export function UserMenu() {
         size="sm"
         variant="outline"
       >
-        <User className="mr-2 h-4 w-4" />
-        {sessionQuery.data?.name ?? "Conta"}
-        <ChevronDown className="ml-2 h-4 w-4" />
+        <User className="h-4 w-4 sm:mr-2" />
+        <span className="sr-only sm:not-sr-only">
+          {sessionQuery.data?.name ?? "Conta"}
+        </span>
+        <ChevronDown className="hidden h-4 w-4 sm:ml-2 sm:block" />
       </Button>
 
       <AnimatePresence>

@@ -27,8 +27,8 @@ export function AppHeader() {
             Seu dicionário pessoal para explorar palavras em inglês.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <nav className="flex flex-wrap gap-1 rounded-full bg-surface-soft p-1">
+        <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
+          <nav className="flex justify-between gap-5 rounded-full bg-surface-soft p-1 sm:flex-none sm:justify-start sm:gap-1">
             {links.map((link) => (
               <Link
                 key={link.href}
@@ -41,7 +41,7 @@ export function AppHeader() {
                 href={link.href}
               >
                 <link.icon className="h-4 w-4" />
-                {link.label}
+                <span className="sr-only sm:not-sr-only">{link.label}</span>
               </Link>
             ))}
           </nav>
