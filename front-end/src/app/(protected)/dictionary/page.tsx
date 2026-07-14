@@ -64,7 +64,7 @@ export default function DictionaryPage() {
             {filter ? (
               <button
                 aria-label="Limpar busca"
-                className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted transition-colors hover:text-text"
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted transition-colors hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 onClick={() => {
                   setPage(1);
                   setFilter("");

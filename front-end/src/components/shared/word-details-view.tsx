@@ -20,7 +20,11 @@ export function WordDetailsView({
   const detailsQuery = useWordDetails(word);
 
   if (detailsQuery.isLoading) {
-    return <WordDetailsSkeleton />;
+    return (
+      <div aria-busy="true" aria-live="polite">
+        <WordDetailsSkeleton />
+      </div>
+    );
   }
 
   if (detailsQuery.isError) {

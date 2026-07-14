@@ -34,6 +34,8 @@ export function UserMenu() {
   return (
     <div className="relative" ref={containerRef}>
       <Button
+        aria-expanded={open}
+        aria-haspopup="menu"
         onClick={() => setOpen((currentState) => !currentState)}
         size="sm"
         variant="outline"
@@ -63,12 +65,14 @@ export function UserMenu() {
               Perfil
             </Link>
             <button
+              aria-busy={logoutMutation.isPending}
               className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-text hover:bg-surface-soft"
+              disabled={logoutMutation.isPending}
               onClick={handleLogout}
               type="button"
             >
               <LogOut className="h-4 w-4" />
-              Sair
+              {logoutMutation.isPending ? "Saindo..." : "Sair"}
             </button>
           </motion.div>
         ) : null}

@@ -35,10 +35,11 @@ export function WordCard({
   return (
     <motion.div
       animate={{ opacity: 1, y: 0 }}
-      className={`relative flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4 shadow-sm transition-colors hover:bg-surface-soft sm:flex-row sm:items-center sm:justify-between ${isPreviewable ? "cursor-pointer" : ""}`}
+      className={`relative flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4 shadow-sm transition-colors hover:bg-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:flex-row sm:items-center sm:justify-between ${isPreviewable ? "cursor-pointer" : ""}`}
       initial={{ opacity: 0, y: 8 }}
       onClick={onPreview}
       onKeyDown={handleKeyDown}
+      aria-label={isPreviewable ? `Abrir detalhes de ${word}` : undefined}
       role={isPreviewable ? "button" : undefined}
       tabIndex={isPreviewable ? 0 : undefined}
       transition={{ duration: 0.2 }}

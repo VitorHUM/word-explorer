@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { useFavoriteStatus, useToggleFavorite } from "@/hooks/use-words";
-import { Heart } from "lucide-react";
+import { Heart, Loader2 } from "lucide-react";
 
 export function FavoriteButton({
   word,
@@ -20,12 +20,21 @@ export function FavoriteButton({
   return (
     <Button
       aria-label={isFavorite ? `Desfavoritar ${word}` : `Favoritar ${word}`}
+      aria-busy={isLoading}
+      aria-pressed={isFavorite}
       disabled={isLoading}
       onClick={() => toggleMutation.mutate(isFavorite)}
       size="sm"
       variant={isFavorite ? "primary" : "secondary"}
     >
-      <Heart className={`h-4 w-4 ${isFavorite ? "fill-current" : ""}`} />
+      {isLoading ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <Heart className={`h-4 w-4 ${isFavorite ? "fill-current" : ""}`} />
+      )}
+      <span className="sr-only">
+        {isLoading ? "Atualizando favorito" : "Alternar favorito"}
+      </span>
     </Button>
   );
 }

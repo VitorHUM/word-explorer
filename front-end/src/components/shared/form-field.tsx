@@ -21,6 +21,7 @@ export function FormField({
 }: FormFieldProps) {
   const [showPassword, setShowPassword] = useState(false);
   const isPasswordField = type === "password";
+  const errorId = `${id}-error`;
 
   return (
     <div className="space-y-2">
@@ -29,6 +30,7 @@ export function FormField({
       </label>
       <div className="relative">
         <Input
+          aria-describedby={error && !hideError ? errorId : undefined}
           aria-invalid={Boolean(error)}
           className={isPasswordField ? "pr-11" : undefined}
           id={id}
@@ -51,7 +53,13 @@ export function FormField({
         ) : null}
       </div>
       {error && !hideError ? (
-        <p className="text-sm text-red-600 dark:text-red-300">{error}</p>
+        <p
+          className="text-sm text-red-600 dark:text-red-300"
+          id={errorId}
+          role="alert"
+        >
+          {error}
+        </p>
       ) : null}
     </div>
   );
