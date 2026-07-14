@@ -99,6 +99,7 @@ services:
   front-end:
     build:
       context: ./front-end
+      target: production
     container_name: word-explorer-front-end
     restart: unless-stopped
     environment:
