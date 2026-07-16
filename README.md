@@ -259,7 +259,7 @@ Swagger existe apenas no back-end.
 
 - detalhes da palavra ainda dependem da Free Dictionary API
 - a listagem só fica útil depois da importação do dicionário
-- o Render Free pode desligar a API após inatividade; o workflow `Keep Awake` chama `/health` a cada 10 minutos para reduzir cold starts
+- o Render Free pode desligar a API após inatividade; o workflow `Keep API Awake` chama `/health` a cada 10 minutos para reduzir cold starts
 
 ## Manter API Acordada
 

@@ -1,4 +1,4 @@
-name: Keep Render API Awake
+name: Keep API Awake
 
 on:
   schedule:
