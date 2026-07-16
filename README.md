@@ -259,6 +259,17 @@ Swagger existe apenas no back-end.
 
 - detalhes da palavra ainda dependem da Free Dictionary API
 - a listagem só fica útil depois da importação do dicionário
+- o Render Free pode desligar a API após inatividade; o workflow `Keep Awake` chama `/health` a cada 10 minutos para reduzir cold starts
+
+## Manter API Acordada
+
+O workflow `.github/workflows/keep-awake.yml` executa a cada 10 minutos e chama o healthcheck do back-end.
+
+Configure este secret no GitHub Actions:
+
+```env
+BACKEND_HEALTHCHECK_URL=https://sua-api.onrender.com/health
+```
 
 ## Links de Referência
 
