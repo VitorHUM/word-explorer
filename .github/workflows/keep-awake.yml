@@ -2,7 +2,7 @@ name: Keep API Awake
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: '7,17,27,37,47,57 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -11,6 +11,6 @@ jobs:
     steps:
       - name: Ping healthcheck
         run: |
-          curl --fail --silent --show-error --max-time 30 --retry 2 --retry-delay 5 "$BACKEND_HEALTHCHECK_URL"
+          curl --fail --silent --show-error --max-time 40 --retry 2 --retry-delay 5 "$BACKEND_HEALTHCHECK_URL"
         env:
           BACKEND_HEALTHCHECK_URL: ${{ secrets.BACKEND_HEALTHCHECK_URL }}
