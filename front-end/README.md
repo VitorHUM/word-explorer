@@ -1,4 +1,4 @@
-# [Word Explorer Web](https://word-explorer-web.vercel.app/)
+# 📖 [Word Explorer Web](https://word-explorer-web.vercel.app/)
 
 > Aplicação web em Next.js para autenticação, busca de palavras, histórico, favoritos e visualização de detalhes em inglês.
 

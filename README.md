@@ -1,4 +1,4 @@
-# 📖 [Word Explorer Web](https://word-explorer-web.vercel.app/)
+# 📖 [Word Explorer](https://word-explorer-web.vercel.app/)
 
 > Plataforma para explorar palavras em inglês com histórico e favoritos.
 
